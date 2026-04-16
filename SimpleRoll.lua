@@ -3,10 +3,13 @@ local ADDON_NAME = "SimpleRoll"
 local L = {}
 if GetLocale() == "koKR" then
     L.title = "%s의 전리품"
+    L.need_all = "모두 입찰"
+    L.need_all_tip = "모든 아이템 입찰"
     L.greed_all = "모두 차비"
     L.greed_all_tip = "모든 아이템 차비"
     L.pass_all = "모두 포기"
     L.pass_all_tip = "모든 아이템 포기"
+    L.pass_all_confirm = "모든 아이템을 포기하시겠습니까?"
     L.need = "입찰"
     L.greed = "차비"
     L.pass = "포기"
@@ -21,10 +24,13 @@ if GetLocale() == "koKR" then
     L.all_passed = "전원 포기"
 else
     L.title = "%s's Loot"
+    L.need_all = "Need All"
+    L.need_all_tip = "Need on all items"
     L.greed_all = "Greed All"
     L.greed_all_tip = "Greed on all items"
     L.pass_all = "Pass All"
     L.pass_all_tip = "Pass on all items"
+    L.pass_all_confirm = "Pass on all items?"
     L.need = "Need"
     L.greed = "Greed"
     L.pass = "Pass"
@@ -41,14 +47,15 @@ end
 
 local FRAME_WIDTH = 298
 local SLOT_HEIGHT = 48
-local HEADER_HEIGHT = 10
+local HEADER_HEIGHT = 24
 local FOOTER_HEIGHT = 30
 local PADDING = 8
 local BUTTON_SIZE = 28
-local ICON_SIZE = 32
+local ICON_SIZE = 25
 
 local EXPIRE_WON = 8
 local EXPIRE_LOST = 5
+local EXPIRE_ROLLED = 30
 
 local GetItemInfo = C_Item and C_Item.GetItemInfo or _G.GetItemInfo
 local GetItemQualityColor = C_Item and C_Item.GetItemQualityColor or _G.GetItemQualityColor
@@ -66,6 +73,8 @@ local activeRolls = {}
 local pendingRolls = {}
 local slotPool = {}
 local ReleaseSlot
+local InitChatResults, UpdateSlotResultDisplay, FindEntryByName
+local FinishSlotWithWinner, FinishSlotAllPassed
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
 
@@ -132,6 +141,55 @@ end)
 
 local function UpdateHeader() end
 
+-- Need All button
+local needAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
+needAllBtn:SetSize(80, 22)
+needAllBtn:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+})
+needAllBtn:SetBackdropColor(0.05, 0.15, 0.05, 0.85)
+needAllBtn:SetBackdropBorderColor(0.3, 0.8, 0.3, 1)
+
+local needAllIcon = needAllBtn:CreateTexture(nil, "ARTWORK")
+needAllIcon:SetSize(14, 14)
+needAllIcon:SetPoint("LEFT", 4, 0)
+needAllIcon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Up")
+
+local needAllText = needAllBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 3, 0)
+needAllText:SetText(L.need_all)
+needAllText:SetTextColor(0.4, 1, 0.4)
+
+needAllBtn:SetScript("OnEnter", function(self)
+    self:SetBackdropBorderColor(0.5, 1, 0.5, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.need_all_tip, 1, 1, 1)
+    GameTooltip:Show()
+end)
+needAllBtn:SetScript("OnLeave", function(self)
+    self:SetBackdropBorderColor(0.3, 0.8, 0.3, 1)
+    GameTooltip:Hide()
+end)
+needAllBtn:SetScript("OnClick", function()
+    for rollID, slot in pairs(activeRolls) do
+        if slot and not slot.rolled and not slot.timedOut then
+            if rollID < 9000 then
+                RollOnLoot(rollID, 1)
+            end
+            slot.rolled = true
+            for _, b in pairs(slot.Buttons) do b:Hide() end
+            slot.ResultText:SetText(string.format(L.you_rolled, L.need))
+            slot.ResultText:SetTextColor(0.4, 1, 0.4)
+            slot.ResultText:Show()
+            slot.TimerBar:Hide()
+        end
+    end
+    MainFrame:UpdateCloseButton()
+end)
+
 -- Greed All button
 local greedAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
 greedAllBtn:SetSize(80, 22)
@@ -165,38 +223,20 @@ greedAllBtn:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
 greedAllBtn:SetScript("OnClick", function()
-    local rollIDs = {}
-    for rollID in pairs(activeRolls) do
-        table.insert(rollIDs, rollID)
-    end
-    for _, rollID in ipairs(rollIDs) do
-        local slot = activeRolls[rollID]
-        if slot then
-            if not slot.rolled and rollID < 9000 then
+    for rollID, slot in pairs(activeRolls) do
+        if slot and not slot.rolled then
+            if rollID < 9000 then
                 RollOnLoot(rollID, 2)
             end
             slot.rolled = true
-            slot:SetScript("OnUpdate", nil)
-            for _, b in pairs(slot.Buttons) do
-                b:Disable()
-                b:SetAlpha(0.3)
-            end
-            slot.StatusText:SetText(string.format(L.you_rolled, L.greed))
-            slot.StatusText:SetTextColor(0.4, 0.6, 1)
-            slot.StatusText:Show()
-            slot.ItemName:Hide()
+            for _, b in pairs(slot.Buttons) do b:Hide() end
+            slot.ResultText:SetText(string.format(L.you_rolled, L.greed))
+            slot.ResultText:SetTextColor(0.4, 0.6, 1)
+            slot.ResultText:Show()
+            slot.TimerBar:Hide()
         end
     end
-    C_Timer.After(1.5, function()
-        for _, rollID in ipairs(rollIDs) do
-            local slot = activeRolls[rollID]
-            if slot then
-                ReleaseSlot(slot)
-                activeRolls[rollID] = nil
-            end
-        end
-        MainFrame:UpdateLayout()
-    end)
+    MainFrame:UpdateCloseButton()
 end)
 
 -- Pass All button
@@ -231,50 +271,94 @@ passAllBtn:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(0.8, 0.3, 0.3, 1)
     GameTooltip:Hide()
 end)
+StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
+    text = L.pass_all_confirm,
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function()
+        for rollID, slot in pairs(activeRolls) do
+            if slot and not slot.rolled and not slot.timedOut then
+                if rollID < 9000 then
+                    RollOnLoot(rollID, 0)
+                end
+                slot.rolled = true
+                for _, b in pairs(slot.Buttons) do b:Hide() end
+                slot.ResultText:SetText(string.format(L.you_rolled, L.pass))
+                slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
+                slot.ResultText:Show()
+                slot.TimerBar:Hide()
+            end
+        end
+        MainFrame:UpdateCloseButton()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+}
 passAllBtn:SetScript("OnClick", function()
-    local rollIDs = {}
-    for rollID in pairs(activeRolls) do
-        table.insert(rollIDs, rollID)
-    end
-    for _, rollID in ipairs(rollIDs) do
-        local slot = activeRolls[rollID]
-        if slot then
-            if not slot.rolled and rollID < 9000 then
-                RollOnLoot(rollID, 0)
-            end
-            slot.rolled = true
-            slot:SetScript("OnUpdate", nil)
-            for _, b in pairs(slot.Buttons) do
-                b:Disable()
-                b:SetAlpha(0.3)
-            end
-            slot.StatusText:SetText(string.format(L.you_rolled, L.pass))
-            slot.StatusText:SetTextColor(0.7, 0.7, 0.7)
-            slot.StatusText:Show()
-            slot.ItemName:Hide()
-        end
-    end
-    C_Timer.After(1.5, function()
-        for _, rollID in ipairs(rollIDs) do
-            local slot = activeRolls[rollID]
-            if slot then
-                ReleaseSlot(slot)
-                activeRolls[rollID] = nil
-            end
-        end
-        MainFrame:UpdateLayout()
-    end)
+    StaticPopup_Show("SIMPLEROLL_PASS_ALL")
 end)
 
 local function AnchorTooltipAboveSlot(slot)
     GameTooltip:SetOwner(slot, "ANCHOR_TOP", 0, 4)
 end
 
--- Hint text
-local hint = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-hint:SetPoint("TOPLEFT", MainFrame, "TOPLEFT", 10, -13)
-hint:SetText(L.hint)
-hint:SetTextColor(0.6, 0.6, 0.6, 0.7)
+-- Title text
+local titleText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+titleText:SetPoint("TOPLEFT", MainFrame, "TOPLEFT", 10, -10)
+titleText:SetText("|cFFFFD700SimpleRoll|r")
+
+-- Close button (hidden until all slots resolved)
+local closeBtn = CreateFrame("Button", nil, MainFrame, "UIPanelCloseButton")
+closeBtn:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -2, -2)
+closeBtn:SetSize(30, 30)
+closeBtn:Hide()
+
+-- Countdown text (left of close button)
+local countdownText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+countdownText:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
+countdownText:SetTextColor(0.6, 0.6, 0.6)
+countdownText:Hide()
+closeBtn:SetScript("OnClick", function()
+    for rollID, slot in pairs(activeRolls) do
+        slot:SetScript("OnUpdate", nil)
+        ReleaseSlot(slot)
+    end
+    wipe(activeRolls)
+    MainFrame:UpdateLayout()
+end)
+
+function MainFrame:UpdateCloseButton()
+    for _, slot in pairs(activeRolls) do
+        if slot:IsShown() and not slot.rolled and not slot.timedOut and not slot.over then
+            closeBtn:Hide()
+            return
+        end
+    end
+    closeBtn:Show()
+end
+
+MainFrame:SetScript("OnUpdate", function(self)
+    if not closeBtn:IsShown() then
+        countdownText:Hide()
+        return
+    end
+    local earliest = nil
+    for _, slot in pairs(activeRolls) do
+        if slot.expireAt then
+            local rem = slot.expireAt - GetTime()
+            if not earliest or rem < earliest then
+                earliest = rem
+            end
+        end
+    end
+    if earliest and earliest > 0 then
+        countdownText:SetText(string.format(L.seconds, math.ceil(earliest)))
+        countdownText:Show()
+    else
+        countdownText:Hide()
+    end
+end)
 
 ------------------------------------------------------------
 -- Roll Slot
@@ -323,7 +407,15 @@ local function AcquireSlot()
     itemName:SetWordWrap(false)
     slot.ItemName = itemName
 
-    -- Status text (shown after rolling, replaces buttons)
+    -- Roll count text (below item name, real-time counters)
+    local rollCountText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    rollCountText:SetPoint("TOPLEFT", iconBg, "RIGHT", 8, -6)
+    rollCountText:SetJustifyH("LEFT")
+    rollCountText:SetWordWrap(false)
+    rollCountText:Hide()
+    slot.RollCountText = rollCountText
+
+    -- Status text (shown for final result: winner/all passed)
     local statusText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statusText:SetPoint("TOPLEFT", iconBg, "TOPRIGHT", 8, -2)
     statusText:SetJustifyH("LEFT")
@@ -401,44 +493,25 @@ local function AcquireSlot()
                     RollOnLoot(slot.rollID, def.type)
                 end
 
-                -- Disable buttons, show status
-                for _, b in pairs(slot.Buttons) do
-                    b:Disable()
-                    b:SetAlpha(0.3)
-                end
-                slot.StatusText:SetText(string.format(L.you_rolled, def.label))
-                slot.StatusText:SetTextColor(0.5, 1, 0.5)
-                slot.StatusText:Show()
-                slot.ItemName:Hide()
+                -- Hide buttons, show choice in button area
+                for _, b in pairs(slot.Buttons) do b:Hide() end
+                slot.ResultText:SetText(string.format(L.you_rolled, def.label))
+                slot.ResultText:SetTextColor(0.5, 1, 0.5)
+                slot.ResultText:Show()
+                slot.TimerBar:Hide()
+                MainFrame:UpdateCloseButton()
 
-                -- Check if all rolls are done
-                local allDone = true
-                for _, s in pairs(activeRolls) do
-                    if s:IsShown() and not s.rolled then
-                        allDone = false
-                        break
+                -- Test mode: add self to results
+                if isTest then
+                    InitChatResults(slot)
+                    if def.type == 1 then
+                        table.insert(slot.chatNeed, { name = UnitName("player") })
+                    elseif def.type == 2 then
+                        table.insert(slot.chatGreed, { name = UnitName("player") })
+                    else
+                        table.insert(slot.chatPass, { name = UnitName("player") })
                     end
-                end
-                if allDone then
-                    C_Timer.After(1.5, function()
-                        for rid, s in pairs(activeRolls) do
-                            if s.rolled and not s.over then
-                                s:SetScript("OnUpdate", nil)
-                                s:Hide()
-                            end
-                        end
-                        -- Clean up rolled slots
-                        local remaining = {}
-                        for rid, s in pairs(activeRolls) do
-                            if s:IsShown() then
-                                remaining[rid] = s
-                            else
-                                ReleaseSlot(s)
-                            end
-                        end
-                        activeRolls = remaining
-                        MainFrame:UpdateLayout()
-                    end)
+                    UpdateSlotResultDisplay(slot)
                 end
             end
         end)
@@ -447,13 +520,24 @@ local function AcquireSlot()
         prevBtn = btn
     end
 
+    -- Result text (shown in button area after rolling)
+    local resultText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    resultText:SetPoint("TOPRIGHT", slot, "TOPRIGHT", -6, -6)
+    resultText:SetJustifyH("RIGHT")
+    resultText:SetWordWrap(false)
+    resultText:Hide()
+    slot.ResultText = resultText
+
     -- Anchor item name right edge to left of leftmost button (need)
     local leftBtn = slot.Buttons.need
     if leftBtn then
         itemName:SetPoint("RIGHT", leftBtn, "LEFT", -6, 0)
+        rollCountText:SetPoint("RIGHT", leftBtn, "LEFT", -6, 0)
         statusText:SetPoint("RIGHT", slot, "RIGHT", -6, 0)
+        resultText:SetPoint("LEFT", leftBtn, "LEFT", 0, 0)
     else
         itemName:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
+        rollCountText:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
         statusText:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
     end
 
@@ -491,10 +575,16 @@ ReleaseSlot = function(slot)
     slot.totalTime = nil
     slot.over = nil
     slot.expireAt = nil
+    slot.timedOut = nil
+    slot.chatNeed = nil
+    slot.chatGreed = nil
+    slot.chatPass = nil
+    if slot.ResultText then slot.ResultText:SetText(""); slot.ResultText:Hide() end
+    if slot.RollCountText then slot.RollCountText:SetText(""); slot.RollCountText:Hide() end
     if slot.Icon then slot.Icon:SetTexture(nil) end
     if slot.ItemName then slot.ItemName:SetText(""); slot.ItemName:Show() end
     if slot.StatusText then slot.StatusText:SetText(""); slot.StatusText:Hide() end
-    if slot.TimerBar then slot.TimerBar:SetValue(0) end
+    if slot.TimerBar then slot.TimerBar:SetValue(0); slot.TimerBar:Show() end
     if slot.TimerBar and slot.TimerBar.Text then slot.TimerBar.Text:SetText("") end
     if slot.Buttons then
         for _, btn in pairs(slot.Buttons) do
@@ -557,10 +647,12 @@ function MainFrame:UpdateLayout()
     local totalH = HEADER_HEIGHT + 4 + (#visible * (SLOT_HEIGHT + 3)) + FOOTER_HEIGHT + PADDING
     self:SetHeight(totalH)
 
-    passAllBtn:ClearAllPoints()
-    passAllBtn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 10, 8)
+    needAllBtn:ClearAllPoints()
+    needAllBtn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 10, 8)
     greedAllBtn:ClearAllPoints()
-    greedAllBtn:SetPoint("LEFT", passAllBtn, "RIGHT", 4, 0)
+    greedAllBtn:SetPoint("CENTER", self, "BOTTOM", 0, 19)
+    passAllBtn:ClearAllPoints()
+    passAllBtn:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -10, 8)
 
     self:Show()
 end
@@ -597,7 +689,7 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
 
     slot.TimerBar:SetMinMaxValues(0, slot.totalTime)
     slot.TimerBar:SetValue(slot.timeLeft)
-    slot.TimerBar.Text:SetText(string.format(L.seconds, math.floor(slot.timeLeft)))
+    slot.TimerBar.Text:SetText("")
 
     -- Button enable/disable
     if slot.Buttons.need then
@@ -625,30 +717,42 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
 
     -- Timer OnUpdate
     slot:SetScript("OnUpdate", function(self, elapsed)
-        -- Expiration countdown after roll is over
+        -- Expiration countdown (30s after result received)
         if self.expireAt then
-            if GetTime() >= self.expireAt then
+            local remaining = self.expireAt - GetTime()
+            if remaining <= 0 then
                 self:SetScript("OnUpdate", nil)
                 activeRolls[self.rollID] = nil
                 ReleaseSlot(self)
                 MainFrame:UpdateLayout()
+                return
             end
             return
         end
 
         self.timeLeft = self.timeLeft - elapsed
         if self.timeLeft <= 0 then
-            if not self.rolled or not HAS_LOOT_HISTORY then
-                self:SetScript("OnUpdate", nil)
-                self:Hide()
-                activeRolls[self.rollID] = nil
-                MainFrame:UpdateLayout()
-                return
-            end
             self.timeLeft = 0
+            if not self.rolled and not self.timedOut then
+                self.timedOut = true
+                for _, b in pairs(self.Buttons) do b:Hide() end
+                self.ResultText:SetText(L.pass)
+                self.ResultText:SetTextColor(0.7, 0.7, 0.7)
+                self.ResultText:Show()
+                self.TimerBar:Hide()
+                if self.rollID and self.rollID >= 9000 then
+                    InitChatResults(self)
+                    local pn = UnitName("player")
+                    if not FindEntryByName(self.chatPass, pn) then
+                        table.insert(self.chatPass, { name = pn })
+                        UpdateSlotResultDisplay(self)
+                    end
+                end
+                MainFrame:UpdateCloseButton()
+            end
         end
         self.TimerBar:SetValue(self.timeLeft)
-        self.TimerBar.Text:SetText(string.format(L.seconds, math.max(0, math.floor(self.timeLeft))))
+        self.TimerBar.Text:SetText("")
 
         local pct = self.timeLeft / self.totalTime
         if pct > 0.5 then
@@ -663,6 +767,7 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
     slot:Show()
     activeRolls[rollID] = slot
     MainFrame:UpdateLayout()
+    MainFrame:UpdateCloseButton()
 end
 
 local function RemoveRoll(rollID)
@@ -756,21 +861,15 @@ local function OnRollComplete()
 
             -- Show result
             for _, b in pairs(slot.Buttons) do b:Hide() end
-            slot.ItemName:Hide()
-            slot.StatusText:Show()
+            slot.ResultText:Hide()
 
             if winnerName then
-                local r, g, b = 1, 0.82, 0
-                if winnerClass and RAID_CLASS_COLORS[winnerClass] then
-                    local c = RAID_CLASS_COLORS[winnerClass]
-                    r, g, b = c.r, c.g, c.b
-                end
-                slot.StatusText:SetText(string.format(L.winner, winnerName))
-                slot.StatusText:SetTextColor(r, g, b)
+                slot.RollCountText:SetText("|cFFFFD700" .. string.format(L.winner, winnerName) .. "|r")
+                slot.RollCountText:Show()
                 slot.expireAt = GetTime() + (winnerIsMe and EXPIRE_WON or EXPIRE_LOST)
             else
-                slot.StatusText:SetText(L.all_passed)
-                slot.StatusText:SetTextColor(0.7, 0.7, 0.7)
+                slot.RollCountText:SetText("|cFF999999" .. L.all_passed .. "|r")
+                slot.RollCountText:Show()
                 slot.expireAt = GetTime() + EXPIRE_LOST
             end
 
@@ -779,6 +878,256 @@ local function OnRollComplete()
             return
         end
         hid = hid + 1
+    end
+end
+
+------------------------------------------------------------
+-- CHAT_MSG_LOOT parsing (TBC fallback when no C_LootHistory)
+------------------------------------------------------------
+local function GlobalStringToPattern(fmt)
+    if not fmt then return nil end
+    local p = fmt
+    p = p:gsub("%%s", "\001")
+    p = p:gsub("%%d", "\002")
+    p = p:gsub("|1(.-)%;(.-)%;", "\003")
+    p = p:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+    p = p:gsub("\001", "(.+)")
+    p = p:gsub("\002", "(%%d+)")
+    p = p:gsub("\003", ".+")
+    return "^" .. p .. "$"
+end
+
+-- "selected" patterns: fired when a player makes their choice (real-time)
+local PAT_SEL_NEED      = GlobalStringToPattern(LOOT_ROLL_NEED)
+local PAT_SEL_GREED     = GlobalStringToPattern(LOOT_ROLL_GREED)
+local PAT_SEL_PASS      = GlobalStringToPattern(LOOT_ROLL_PASSED)
+local PAT_SEL_NEED_SELF  = GlobalStringToPattern(LOOT_ROLL_NEED_SELF)
+local PAT_SEL_GREED_SELF = GlobalStringToPattern(LOOT_ROLL_GREED_SELF)
+local PAT_SEL_PASS_SELF  = GlobalStringToPattern(LOOT_ROLL_PASSED_SELF)
+local PAT_SEL_PASS_AUTO  = GlobalStringToPattern(LOOT_ROLL_PASSED_AUTO)
+local PAT_SEL_PASS_SELF_AUTO = GlobalStringToPattern(LOOT_ROLL_PASSED_SELF_AUTO)
+
+-- "rolled" patterns: fired with actual dice numbers (after all choices made)
+local PAT_ROLLED_NEED  = GlobalStringToPattern(LOOT_ROLL_ROLLED_NEED)
+local PAT_ROLLED_GREED = GlobalStringToPattern(LOOT_ROLL_ROLLED_GREED)
+local PAT_ROLLED_DE    = GlobalStringToPattern(LOOT_ROLL_ROLLED_DE)
+
+-- final result patterns
+local PAT_ROLL_WON       = GlobalStringToPattern(LOOT_ROLL_WON)
+local PAT_ROLL_YOU_WON   = GlobalStringToPattern(LOOT_ROLL_YOU_WON)
+local PAT_ROLL_ALL_PASS  = GlobalStringToPattern(LOOT_ROLL_ALL_PASSED)
+
+local function FindSlotByItemID(itemID)
+    for rollID, slot in pairs(activeRolls) do
+        if not slot.over and slot.itemLink then
+            if slot.itemLink:match("item:(%d+)") == itemID then
+                return rollID, slot
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function TryMatch(msg, pat)
+    if not pat then return nil end
+    return msg:match(pat)
+end
+
+InitChatResults = function(slot)
+    if not slot.chatNeed then
+        slot.chatNeed = {}
+        slot.chatGreed = {}
+        slot.chatPass = {}
+    end
+end
+
+local ICON_NEED  = "|TInterface\\Buttons\\UI-GroupLoot-Dice-Up:14|t"
+local ICON_GREED = "|TInterface\\Buttons\\UI-GroupLoot-Coin-Up:14|t"
+local ICON_PASS  = "|TInterface\\Buttons\\UI-GroupLoot-Pass-Up:14|t"
+
+UpdateSlotResultDisplay = function(slot)
+    if not slot.chatNeed then return end
+    local parts = {}
+    if #slot.chatNeed > 0 then
+        table.insert(parts, string.format("|cFF44FF22%s%d|r", ICON_NEED, #slot.chatNeed))
+    end
+    if #slot.chatGreed > 0 then
+        table.insert(parts, string.format("|cFF4488FF%s%d|r", ICON_GREED, #slot.chatGreed))
+    end
+    if #slot.chatPass > 0 then
+        table.insert(parts, string.format("|cFF999999%s%d|r", ICON_PASS, #slot.chatPass))
+    end
+    if #parts > 0 then
+        slot.RollCountText:SetText(table.concat(parts, " "))
+        slot.RollCountText:Show()
+    end
+end
+
+FindEntryByName = function(list, name)
+    for _, entry in ipairs(list) do
+        if entry.name == name then return entry end
+    end
+    return nil
+end
+
+FinishSlotWithWinner = function(slot, winnerName)
+    slot.over = true
+    for _, b in pairs(slot.Buttons) do b:Hide() end
+    slot.ResultText:Hide()
+    local typeIcon = ""
+    if slot.chatNeed and FindEntryByName(slot.chatNeed, winnerName) then
+        typeIcon = ICON_NEED
+    elseif slot.chatGreed and FindEntryByName(slot.chatGreed, winnerName) then
+        typeIcon = ICON_GREED
+    end
+    slot.RollCountText:SetText("|cFFFFD700" .. typeIcon .. winnerName .. "|r")
+    slot.RollCountText:Show()
+    local expiry = GetTime() + EXPIRE_ROLLED
+    slot.expireAt = expiry
+    -- Sync all finished slots to the same expiry so they close together
+    for _, s in pairs(activeRolls) do
+        if s.over and s.expireAt and s.expireAt < expiry then
+            s.expireAt = expiry
+        end
+    end
+end
+
+FinishSlotAllPassed = function(slot)
+    slot.over = true
+    for _, b in pairs(slot.Buttons) do b:Hide() end
+    slot.ResultText:Hide()
+    slot.RollCountText:SetText("|cFF999999" .. L.all_passed .. "|r")
+    slot.RollCountText:Show()
+    local expiry = GetTime() + EXPIRE_ROLLED
+    slot.expireAt = expiry
+    for _, s in pairs(activeRolls) do
+        if s.over and s.expireAt and s.expireAt < expiry then
+            s.expireAt = expiry
+        end
+    end
+end
+
+local function OnChatMsgLoot(msg)
+    if HAS_LOOT_HISTORY then return end
+
+    local itemID = msg:match("|Hitem:(%d+)")
+    if not itemID then return end
+
+    local _, slot = FindSlotByItemID(itemID)
+    if not slot then return end
+
+    -- Won
+    if TryMatch(msg, PAT_ROLL_YOU_WON) then
+        FinishSlotWithWinner(slot, UnitName("player"))
+        return
+    end
+    local wonName = TryMatch(msg, PAT_ROLL_WON)
+    if wonName then
+        FinishSlotWithWinner(slot, wonName)
+        return
+    end
+
+    -- All passed
+    if TryMatch(msg, PAT_ROLL_ALL_PASS) then
+        FinishSlotAllPassed(slot)
+        return
+    end
+
+    InitChatResults(slot)
+    local player = UnitName("player")
+
+    -- "rolled" messages: dice number, itemLink, playerName
+    local r1, _, rn1 = TryMatch(msg, PAT_ROLLED_NEED)
+    if r1 and rn1 then
+        local entry = FindEntryByName(slot.chatNeed, rn1) or FindEntryByName(slot.chatNeed, player)
+        if entry then
+            entry.roll = tonumber(r1)
+        else
+            table.insert(slot.chatNeed, { name = rn1, roll = tonumber(r1) })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    local r2, _, rn2 = TryMatch(msg, PAT_ROLLED_GREED)
+    if r2 and rn2 then
+        local entry = FindEntryByName(slot.chatGreed, rn2) or FindEntryByName(slot.chatGreed, player)
+        if entry then
+            entry.roll = tonumber(r2)
+        else
+            table.insert(slot.chatGreed, { name = rn2, roll = tonumber(r2) })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    if PAT_ROLLED_DE then
+        local r3, _, rn3 = TryMatch(msg, PAT_ROLLED_DE)
+        if r3 and rn3 then
+            local entry = FindEntryByName(slot.chatGreed, rn3)
+            if entry then
+                entry.roll = tonumber(r3)
+            else
+                table.insert(slot.chatGreed, { name = rn3, roll = tonumber(r3) })
+            end
+            UpdateSlotResultDisplay(slot)
+            return
+        end
+    end
+
+    -- "selected" messages: player chose need/greed/pass (real-time, no dice yet)
+    local sn1 = TryMatch(msg, PAT_SEL_NEED)
+    if sn1 then
+        if not FindEntryByName(slot.chatNeed, sn1) then
+            table.insert(slot.chatNeed, { name = sn1 })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    if TryMatch(msg, PAT_SEL_NEED_SELF) then
+        if not FindEntryByName(slot.chatNeed, player) then
+            table.insert(slot.chatNeed, { name = player })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+
+    local sn2 = TryMatch(msg, PAT_SEL_GREED)
+    if sn2 then
+        if not FindEntryByName(slot.chatGreed, sn2) then
+            table.insert(slot.chatGreed, { name = sn2 })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    if TryMatch(msg, PAT_SEL_GREED_SELF) then
+        if not FindEntryByName(slot.chatGreed, player) then
+            table.insert(slot.chatGreed, { name = player })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+
+    local sn3 = TryMatch(msg, PAT_SEL_PASS)
+    if sn3 then
+        if not FindEntryByName(slot.chatPass, sn3) then
+            table.insert(slot.chatPass, { name = sn3 })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    if TryMatch(msg, PAT_SEL_PASS_SELF) or TryMatch(msg, PAT_SEL_PASS_SELF_AUTO) then
+        if not FindEntryByName(slot.chatPass, player) then
+            table.insert(slot.chatPass, { name = player })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
+    end
+    local sn4 = TryMatch(msg, PAT_SEL_PASS_AUTO)
+    if sn4 then
+        if not FindEntryByName(slot.chatPass, sn4) then
+            table.insert(slot.chatPass, { name = sn4 })
+        end
+        UpdateSlotResultDisplay(slot)
+        return
     end
 end
 
@@ -861,12 +1210,71 @@ local function TestRolls(count, retryNum)
         GetItemInfo(testItemIDs[i])
     end
 
+    local fakeNames = { "Thrall", "Jaina", "Sylvanas", "Varian" }
     local added = 0
     for i = testNextIndex, testNextIndex + target - 1 do
         local name, link, quality, _, _, _, _, _, _, icon = GetItemInfo(testItemIDs[i])
         if name and icon then
             added = added + 1
-            AddRoll(9000 + i, icon, name, quality, 10, true, true, link)
+            local sid = 9000 + i
+            AddRoll(sid, icon, name, quality, 30, true, true, link)
+
+            -- Simulate other players selecting (before user clicks)
+            local s = activeRolls[sid]
+            if s then
+                InitChatResults(s)
+                local delay = math.random(10, 30) / 10
+                local otherCount = math.random(2, 3)
+                for j = 1, otherCount do
+                    local fn = fakeNames[j]
+                    local rtype = math.random(0, 2)
+                    C_Timer.After(delay, function()
+                        local sl = activeRolls[sid]
+                        if not sl or sl.over then return end
+                        if rtype == 1 then
+                            if not FindEntryByName(sl.chatNeed, fn) then
+                                table.insert(sl.chatNeed, { name = fn })
+                            end
+                        elseif rtype == 2 then
+                            if not FindEntryByName(sl.chatGreed, fn) then
+                                table.insert(sl.chatGreed, { name = fn })
+                            end
+                        else
+                            if not FindEntryByName(sl.chatPass, fn) then
+                                table.insert(sl.chatPass, { name = fn })
+                            end
+                        end
+                        UpdateSlotResultDisplay(sl)
+                    end)
+                    delay = delay + math.random(5, 15) / 10
+                end
+
+                -- Winner: poll until user has chosen or timed out
+                local function TryFinishSlot()
+                    local sl = activeRolls[sid]
+                    if not sl or sl.over then return end
+                    if not sl.rolled and not sl.timedOut then
+                        C_Timer.After(1.0, TryFinishSlot)
+                        return
+                    end
+                    C_Timer.After(1.0, function()
+                        local sl2 = activeRolls[sid]
+                        if not sl2 or sl2.over then return end
+                        local winner
+                        if #sl2.chatNeed > 0 then
+                            winner = sl2.chatNeed[math.random(#sl2.chatNeed)].name
+                        elseif #sl2.chatGreed > 0 then
+                            winner = sl2.chatGreed[math.random(#sl2.chatGreed)].name
+                        end
+                        if winner then
+                            FinishSlotWithWinner(sl2, winner)
+                        else
+                            FinishSlotAllPassed(sl2)
+                        end
+                    end)
+                end
+                C_Timer.After(delay + 1.0, TryFinishSlot)
+            end
         end
     end
 
@@ -880,6 +1288,13 @@ local function TestRolls(count, retryNum)
 
     testNextIndex = testNextIndex + target
     print(string.format(L.test_spawned, added))
+
+    -- Auto-add second wave after 3 seconds
+    if testNextIndex <= #testItemIDs then
+        C_Timer.After(3, function()
+            TestRolls(math.random(2, 3))
+        end)
+    end
 end
 
 ------------------------------------------------------------
@@ -890,6 +1305,10 @@ EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("START_LOOT_ROLL")
 EventFrame:RegisterEvent("CANCEL_LOOT_ROLL")
 EventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+
+if not HAS_LOOT_HISTORY then
+    EventFrame:RegisterEvent("CHAT_MSG_LOOT")
+end
 
 if HAS_LOOT_HISTORY then
     SafeRegisterEvent(EventFrame, "LOOT_HISTORY_ROLL_CHANGED")
@@ -928,7 +1347,26 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     elseif event == "CANCEL_LOOT_ROLL" then
         pendingRolls[arg1] = nil
-        RemoveRoll(arg1)
+        local slot = activeRolls[arg1]
+        if slot and not HAS_LOOT_HISTORY then
+            if not slot.expireAt then
+                if not slot.rolled and not slot.timedOut then
+                    slot.timedOut = true
+                    for _, b in pairs(slot.Buttons) do b:Hide() end
+                    slot.ResultText:SetText(L.pass)
+                    slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
+                    slot.ResultText:Show()
+                    slot.TimerBar:Hide()
+                end
+                slot.expireAt = GetTime() + EXPIRE_ROLLED
+                MainFrame:UpdateCloseButton()
+            end
+        elseif slot then
+            RemoveRoll(arg1)
+        end
+
+    elseif event == "CHAT_MSG_LOOT" then
+        OnChatMsgLoot(arg1)
 
     elseif event == "LOOT_HISTORY_ROLL_CHANGED" then
         OnRollChanged(arg1, arg2)
