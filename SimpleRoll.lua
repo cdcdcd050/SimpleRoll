@@ -48,7 +48,7 @@ end
 local FRAME_WIDTH = 298
 local SLOT_HEIGHT = 48
 local HEADER_HEIGHT = 24
-local FOOTER_HEIGHT = 30
+local FOOTER_HEIGHT = 38
 local PADDING = 8
 local BUTTON_SIZE = 28
 local ICON_SIZE = 25
@@ -89,7 +89,7 @@ end
 local MainFrame = CreateFrame("Frame", "SimpleRollFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 MainFrame:SetSize(FRAME_WIDTH, HEADER_HEIGHT + PADDING * 2)
 MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
-MainFrame:SetFrameStrata("HIGH")
+MainFrame:SetFrameStrata("DIALOG")
 MainFrame:SetClampedToScreen(true)
 MainFrame:Hide()
 
@@ -99,7 +99,7 @@ MainFrame:SetBackdrop({
     tile = true, tileSize = 32, edgeSize = 24,
     insets = { left = 6, right = 6, top = 6, bottom = 6 },
 })
-MainFrame:SetBackdropColor(0.08, 0.08, 0.08, 0.92)
+MainFrame:SetBackdropColor(0.03, 0.03, 0.03, 0.97)
 
 MainFrame:SetMovable(true)
 MainFrame:SetResizable(true)
@@ -143,7 +143,7 @@ local function UpdateHeader() end
 
 -- Need All button
 local needAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-needAllBtn:SetSize(80, 22)
+needAllBtn:SetSize(80, 26)
 needAllBtn:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -173,6 +173,14 @@ needAllBtn:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(0.3, 0.8, 0.3, 1)
     GameTooltip:Hide()
 end)
+needAllBtn:SetScript("OnMouseDown", function(self)
+    self:SetBackdropColor(0.02, 0.08, 0.02, 0.95)
+    needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 4, -1)
+end)
+needAllBtn:SetScript("OnMouseUp", function(self)
+    self:SetBackdropColor(0.05, 0.15, 0.05, 0.85)
+    needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 3, 0)
+end)
 needAllBtn:SetScript("OnClick", function()
     local toRoll = {}
     for rollID, slot in pairs(activeRolls) do
@@ -199,7 +207,7 @@ end)
 
 -- Greed All button
 local greedAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-greedAllBtn:SetSize(80, 22)
+greedAllBtn:SetSize(80, 26)
 greedAllBtn:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -229,6 +237,14 @@ greedAllBtn:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(0.3, 0.5, 0.8, 1)
     GameTooltip:Hide()
 end)
+greedAllBtn:SetScript("OnMouseDown", function(self)
+    self:SetBackdropColor(0.02, 0.02, 0.08, 0.95)
+    greedAllText:SetPoint("LEFT", greedAllIcon, "RIGHT", 4, -1)
+end)
+greedAllBtn:SetScript("OnMouseUp", function(self)
+    self:SetBackdropColor(0.05, 0.05, 0.15, 0.85)
+    greedAllText:SetPoint("LEFT", greedAllIcon, "RIGHT", 3, 0)
+end)
 greedAllBtn:SetScript("OnClick", function()
     local toRoll = {}
     for rollID, slot in pairs(activeRolls) do
@@ -255,7 +271,7 @@ end)
 
 -- Pass All button
 local passAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-passAllBtn:SetSize(80, 22)
+passAllBtn:SetSize(80, 26)
 passAllBtn:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -284,6 +300,14 @@ end)
 passAllBtn:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(0.8, 0.3, 0.3, 1)
     GameTooltip:Hide()
+end)
+passAllBtn:SetScript("OnMouseDown", function(self)
+    self:SetBackdropColor(0.08, 0.02, 0.02, 0.95)
+    passAllText:SetPoint("LEFT", passAllIcon, "RIGHT", 4, -1)
+end)
+passAllBtn:SetScript("OnMouseUp", function(self)
+    self:SetBackdropColor(0.15, 0.05, 0.05, 0.85)
+    passAllText:SetPoint("LEFT", passAllIcon, "RIGHT", 3, 0)
 end)
 StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
     text = L.pass_all_confirm,
@@ -523,18 +547,6 @@ local function AcquireSlot()
                 slot.TimerBar:Hide()
                 MainFrame:UpdateCloseButton()
 
-                -- Test mode: add self to results
-                if isTest then
-                    InitChatResults(slot)
-                    if def.type == 1 then
-                        table.insert(slot.chatNeed, { name = UnitName("player") })
-                    elseif def.type == 2 then
-                        table.insert(slot.chatGreed, { name = UnitName("player") })
-                    else
-                        table.insert(slot.chatPass, { name = UnitName("player") })
-                    end
-                    UpdateSlotResultDisplay(slot)
-                end
             end
         end)
 
@@ -762,14 +774,6 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
                 self.ResultText:SetTextColor(0.7, 0.7, 0.7)
                 self.ResultText:Show()
                 self.TimerBar:Hide()
-                if self.rollID and self.rollID >= 9000 then
-                    InitChatResults(self)
-                    local pn = UnitName("player")
-                    if not FindEntryByName(self.chatPass, pn) then
-                        table.insert(self.chatPass, { name = pn })
-                        UpdateSlotResultDisplay(self)
-                    end
-                end
                 MainFrame:UpdateCloseButton()
             end
         end
@@ -1236,7 +1240,6 @@ local function TestRolls(count, retryNum)
         GetItemInfo(testItemIDs[i])
     end
 
-    local fakeNames = { "Thrall", "Jaina", "Sylvanas", "Varian" }
     local added = 0
     for i = testNextIndex, testNextIndex + target - 1 do
         local name, link, quality, _, _, _, _, _, _, icon = GetItemInfo(testItemIDs[i])
@@ -1244,63 +1247,6 @@ local function TestRolls(count, retryNum)
             added = added + 1
             local sid = 9000 + i
             AddRoll(sid, icon, name, quality, 30, true, true, link)
-
-            -- Simulate other players selecting (before user clicks)
-            local s = activeRolls[sid]
-            if s then
-                InitChatResults(s)
-                local delay = math.random(10, 30) / 10
-                local otherCount = math.random(2, 3)
-                for j = 1, otherCount do
-                    local fn = fakeNames[j]
-                    local rtype = math.random(0, 2)
-                    C_Timer.After(delay, function()
-                        local sl = activeRolls[sid]
-                        if not sl or sl.over then return end
-                        if rtype == 1 then
-                            if not FindEntryByName(sl.chatNeed, fn) then
-                                table.insert(sl.chatNeed, { name = fn })
-                            end
-                        elseif rtype == 2 then
-                            if not FindEntryByName(sl.chatGreed, fn) then
-                                table.insert(sl.chatGreed, { name = fn })
-                            end
-                        else
-                            if not FindEntryByName(sl.chatPass, fn) then
-                                table.insert(sl.chatPass, { name = fn })
-                            end
-                        end
-                        UpdateSlotResultDisplay(sl)
-                    end)
-                    delay = delay + math.random(5, 15) / 10
-                end
-
-                -- Winner: poll until user has chosen or timed out
-                local function TryFinishSlot()
-                    local sl = activeRolls[sid]
-                    if not sl or sl.over then return end
-                    if not sl.rolled and not sl.timedOut then
-                        C_Timer.After(1.0, TryFinishSlot)
-                        return
-                    end
-                    C_Timer.After(1.0, function()
-                        local sl2 = activeRolls[sid]
-                        if not sl2 or sl2.over then return end
-                        local winner
-                        if #sl2.chatNeed > 0 then
-                            winner = sl2.chatNeed[math.random(#sl2.chatNeed)].name
-                        elseif #sl2.chatGreed > 0 then
-                            winner = sl2.chatGreed[math.random(#sl2.chatGreed)].name
-                        end
-                        if winner then
-                            FinishSlotWithWinner(sl2, winner)
-                        else
-                            FinishSlotAllPassed(sl2)
-                        end
-                    end)
-                end
-                C_Timer.After(delay + 1.0, TryFinishSlot)
-            end
         end
     end
 
@@ -1314,13 +1260,6 @@ local function TestRolls(count, retryNum)
 
     testNextIndex = testNextIndex + target
     print(string.format(L.test_spawned, added))
-
-    -- Auto-add second wave after 3 seconds
-    if testNextIndex <= #testItemIDs then
-        C_Timer.After(3, function()
-            TestRolls(math.random(2, 3))
-        end)
-    end
 end
 
 ------------------------------------------------------------
