@@ -60,15 +60,6 @@ local EXPIRE_ROLLED = 30
 local GetItemInfo = C_Item and C_Item.GetItemInfo or _G.GetItemInfo
 local GetItemQualityColor = C_Item and C_Item.GetItemQualityColor or _G.GetItemQualityColor
 
-------------------------------------------------------------
--- C_LootHistory defensive wrapper (WotLK 3.3+ only)
-------------------------------------------------------------
-local HAS_LOOT_HISTORY = C_LootHistory and C_LootHistory.GetItem and true or false
-
-local HistoryGetItem = C_LootHistory and C_LootHistory.GetItem or function() return nil end
-local HistoryGetPlayerInfo = C_LootHistory and C_LootHistory.GetPlayerInfo or function() return nil end
-local HistoryGetNumItems = C_LootHistory and C_LootHistory.GetNumItems or function() return 0 end
-
 local activeRolls = {}
 local pendingRolls = {}
 local slotPool = {}
@@ -77,11 +68,6 @@ local InitChatResults, UpdateSlotResultDisplay, FindEntryByName
 local FinishSlotWithWinner, FinishSlotAllPassed
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
-
-local function SafeRegisterEvent(frame, event)
-    local ok = pcall(function() frame:RegisterEvent(event) end)
-    return ok
-end
 
 ------------------------------------------------------------
 -- Main Frame
@@ -807,108 +793,7 @@ local function RemoveRoll(rollID)
 end
 
 ------------------------------------------------------------
--- C_LootHistory event handlers (only if API exists)
-------------------------------------------------------------
-local function OnRollChanged(hid, pid)
-    if not HAS_LOOT_HISTORY then return end
-
-    local rollID, _, players = HistoryGetItem(hid)
-    local slot = activeRolls[rollID]
-    if not slot or not slot:IsShown() then return end
-
-    local name, class, rtypeid, roll, winner, is_me = HistoryGetPlayerInfo(hid, pid)
-
-    -- Update button counters
-    if not slot.rolled then
-        local needCount, greedCount, passCount = 0, 0, 0
-        players = players or 0
-        for i = 1, players do
-            local _, _, rt = HistoryGetPlayerInfo(hid, i)
-            if rt == 1 then needCount = needCount + 1
-            elseif rt == 2 or rt == 3 then greedCount = greedCount + 1
-            elseif rt == 0 then passCount = passCount + 1
-            end
-        end
-        if slot.Buttons.need and slot.Buttons.need.CountText then
-            slot.Buttons.need.CountText:SetText(needCount > 0 and needCount or "")
-        end
-        if slot.Buttons.greed and slot.Buttons.greed.CountText then
-            slot.Buttons.greed.CountText:SetText(greedCount > 0 and greedCount or "")
-        end
-        if slot.Buttons.pass and slot.Buttons.pass.CountText then
-            slot.Buttons.pass.CountText:SetText(passCount > 0 and passCount or "")
-        end
-    else
-        -- Already rolled: update status with leading type count
-        players = players or 0
-        local needCount, greedCount, passCount = 0, 0, 0
-        for i = 1, players do
-            local _, _, rt = HistoryGetPlayerInfo(hid, i)
-            if rt == 1 then needCount = needCount + 1
-            elseif rt == 2 or rt == 3 then greedCount = greedCount + 1
-            elseif rt == 0 then passCount = passCount + 1
-            end
-        end
-        local statusParts = {}
-        if needCount > 0 then table.insert(statusParts, string.format("|cFF44FF22%s:%d|r", L.need, needCount)) end
-        if greedCount > 0 then table.insert(statusParts, string.format("|cFF4488FF%s:%d|r", L.greed, greedCount)) end
-        if passCount > 0 then table.insert(statusParts, string.format("|cFF999999%s:%d|r", L.pass, passCount)) end
-        if #statusParts > 0 then
-            slot.StatusText:SetText(table.concat(statusParts, "  "))
-            slot.StatusText:SetTextColor(1, 1, 1)
-        end
-    end
-end
-
-local function OnRollComplete()
-    if not HAS_LOOT_HISTORY then return end
-
-    local hid = 1
-    while true do
-        local rollID, _, players, done = HistoryGetItem(hid)
-        if not rollID then return end
-
-        local slot = activeRolls[rollID]
-        if done and slot and not slot.over then
-            slot.over = true
-            players = players or 0
-
-            -- Find winner
-            local winnerName, winnerClass, winnerIsMe
-            for j = 1, players do
-                local pName, pClass, _, _, isWinner, isMe = HistoryGetPlayerInfo(hid, j)
-                if isWinner then
-                    winnerName = pName
-                    winnerClass = pClass
-                    winnerIsMe = isMe
-                    break
-                end
-            end
-
-            -- Show result
-            for _, b in pairs(slot.Buttons) do b:Hide() end
-            slot.ResultText:Hide()
-
-            if winnerName then
-                slot.RollCountText:SetText("|cFFFFD700" .. string.format(L.winner, winnerName) .. "|r")
-                slot.RollCountText:Show()
-                slot.expireAt = GetTime() + (winnerIsMe and EXPIRE_WON or EXPIRE_LOST)
-            else
-                slot.RollCountText:SetText("|cFF999999" .. L.all_passed .. "|r")
-                slot.RollCountText:Show()
-                slot.expireAt = GetTime() + EXPIRE_LOST
-            end
-
-            slot.TimerBar:SetValue(0)
-            slot.TimerBar.Text:SetText("")
-            return
-        end
-        hid = hid + 1
-    end
-end
-
-------------------------------------------------------------
--- CHAT_MSG_LOOT parsing (TBC fallback when no C_LootHistory)
+-- CHAT_MSG_LOOT parsing
 ------------------------------------------------------------
 local function GlobalStringToPattern(fmt)
     if not fmt then return nil end
@@ -1038,8 +923,6 @@ FinishSlotAllPassed = function(slot)
 end
 
 local function OnChatMsgLoot(msg)
-    if HAS_LOOT_HISTORY then return end
-
     local itemID = msg:match("|Hitem:(%d+)")
     if not itemID then return end
 
@@ -1270,16 +1153,7 @@ EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("START_LOOT_ROLL")
 EventFrame:RegisterEvent("CANCEL_LOOT_ROLL")
 EventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-if not HAS_LOOT_HISTORY then
-    EventFrame:RegisterEvent("CHAT_MSG_LOOT")
-end
-
-if HAS_LOOT_HISTORY then
-    SafeRegisterEvent(EventFrame, "LOOT_HISTORY_ROLL_CHANGED")
-    SafeRegisterEvent(EventFrame, "LOOT_HISTORY_ROLL_COMPLETE")
-    SafeRegisterEvent(EventFrame, "LOOT_ROLLS_COMPLETE")
-end
+EventFrame:RegisterEvent("CHAT_MSG_LOOT")
 
 EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
@@ -1313,31 +1187,22 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     elseif event == "CANCEL_LOOT_ROLL" then
         pendingRolls[arg1] = nil
         local slot = activeRolls[arg1]
-        if slot and not HAS_LOOT_HISTORY then
-            if not slot.expireAt then
-                if not slot.rolled and not slot.timedOut then
-                    slot.timedOut = true
-                    for _, b in pairs(slot.Buttons) do b:Hide() end
-                    slot.ResultText:SetText(L.pass)
-                    slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
-                    slot.ResultText:Show()
-                    slot.TimerBar:Hide()
-                end
-                slot.expireAt = GetTime() + EXPIRE_ROLLED
-                MainFrame:UpdateCloseButton()
+        if slot and not slot.expireAt then
+            if not slot.rolled and not slot.timedOut then
+                slot.timedOut = true
+                for _, b in pairs(slot.Buttons) do b:Hide() end
+                slot.ResultText:SetText(L.pass)
+                slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
+                slot.ResultText:Show()
+                slot.TimerBar:Hide()
             end
-        elseif slot then
-            RemoveRoll(arg1)
+            local remaining = slot.rolled and math.max(slot.timeLeft or 0, 0) or 0
+            slot.expireAt = GetTime() + remaining + EXPIRE_ROLLED
+            MainFrame:UpdateCloseButton()
         end
 
     elseif event == "CHAT_MSG_LOOT" then
         OnChatMsgLoot(arg1)
-
-    elseif event == "LOOT_HISTORY_ROLL_CHANGED" then
-        OnRollChanged(arg1, arg2)
-
-    elseif event == "LOOT_HISTORY_ROLL_COMPLETE" or event == "LOOT_ROLLS_COMPLETE" then
-        OnRollComplete()
     end
 end)
 

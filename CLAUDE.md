@@ -58,20 +58,11 @@ SimpleRoll/
 ## 닫힘 조건
 1. **X 버튼 클릭** — 수동으로 모든 슬롯 닫기 (UIPanelCloseButton)
 2. **타이머 만료 (미선택)** — 시간 초과 시 슬롯 제거, 마지막 슬롯이면 창 닫힘
-3. **롤 완료(C_LootHistory, WotLK+)** — 승자 결정 후 5~8초 뒤 슬롯 만료
-4. **롤 완료(CHAT_MSG_LOOT, TBC)** — 승자/전원포기 결과 수신 후 30초 뒤 자동 닫힘
-5. **CANCEL_LOOT_ROLL 이벤트** — 미선택 시 즉시 제거, 선택 완료 시 30초 대기 (TBC)
-6. **테스트 롤** — 모든 슬롯 선택 완료 시 1.5초 후 정리
+3. **롤 완료(CHAT_MSG_LOOT)** — 승자/전원포기 결과 수신 후 30초 뒤 자동 닫힘
+4. **CANCEL_LOOT_ROLL 이벤트** — 미선택 시 포기 표시 + 30초 대기, 선택 완료 시 잔여 타이머 + 30초 대기
+5. **테스트 롤** — 모든 슬롯 선택 완료 시 1.5초 후 정리
 
-## 롤 결과 추적 (클라이언트별 분기)
-
-### WotLK 3.3+ (C_LootHistory API 존재)
-- 내 선택 후 슬롯 유지, 카운터/상태 텍스트 표시
-- 다른 플레이어 선택 시 버튼 카운터 업데이트
-- 롤 완료 시 승자 표시 후 5~8초 뒤 자동 만료
-- 이벤트: `LOOT_HISTORY_ROLL_CHANGED`, `LOOT_HISTORY_ROLL_COMPLETE`
-
-### TBC (C_LootHistory 없음 → CHAT_MSG_LOOT 파싱)
+## 롤 결과 추적 (CHAT_MSG_LOOT 파싱)
 - 버튼 클릭 → 비활성화 + 상태 표시, 슬롯 유지 (닫지 않음)
 - 서버 타이머 만료 후에도 슬롯 유지 (결과 대기)
 - `CHAT_MSG_LOOT` 메시지 파싱으로 롤 결과 추적:
@@ -79,9 +70,8 @@ SimpleRoll/
   - 개별 롤 결과 (Need/Greed/Pass) → `입찰:2  차비:1  포기:1` 형태로 상태 텍스트 업데이트
   - 승자 결정 (`LOOT_ROLL_WON`) → 승자 이름 표시 + 30초 카운트다운
   - 전원 포기 (`LOOT_ROLL_ALL_PASSED`) → "전원 포기" 표시 + 30초 카운트다운
-- `CANCEL_LOOT_ROLL` 수신 시: 이미 선택한 슬롯은 제거하지 않고 30초 대기 (채팅 결과 수신 기회)
-- 30초 카운트다운: 타이머 바를 파란색으로 재활용하여 잔여 시간 표시
-- 이벤트 등록: `SafeRegisterEvent` (pcall 래핑)
+- `CANCEL_LOOT_ROLL` 수신 시: 이미 선택한 슬롯은 제거하지 않고 잔여 타이머 + 30초 대기 (채팅 결과 수신 기회)
+- `FindSlotByItemID`: 같은 아이템이 여러 개일 때 이미 롤한 슬롯(`rolled=true`)을 우선 매칭
 
 ## 타이머
 - **실제 롤**: `GetLootRollTimeLeft(rollID)`로 서버에서 남은 시간(ms) 수신, `/1000` 변환
