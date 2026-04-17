@@ -174,10 +174,17 @@ needAllBtn:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
 needAllBtn:SetScript("OnClick", function()
+    local toRoll = {}
     for rollID, slot in pairs(activeRolls) do
         if slot and not slot.rolled and not slot.timedOut then
+            toRoll[#toRoll + 1] = rollID
+        end
+    end
+    for _, rollID in ipairs(toRoll) do
+        local slot = activeRolls[rollID]
+        if slot then
             if rollID < 9000 then
-                RollOnLoot(rollID, 1)
+                pcall(RollOnLoot, rollID, 1)
             end
             slot.rolled = true
             for _, b in pairs(slot.Buttons) do b:Hide() end
@@ -223,10 +230,17 @@ greedAllBtn:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
 end)
 greedAllBtn:SetScript("OnClick", function()
+    local toRoll = {}
     for rollID, slot in pairs(activeRolls) do
-        if slot and not slot.rolled then
+        if slot and not slot.rolled and not slot.timedOut then
+            toRoll[#toRoll + 1] = rollID
+        end
+    end
+    for _, rollID in ipairs(toRoll) do
+        local slot = activeRolls[rollID]
+        if slot then
             if rollID < 9000 then
-                RollOnLoot(rollID, 2)
+                pcall(RollOnLoot, rollID, 2)
             end
             slot.rolled = true
             for _, b in pairs(slot.Buttons) do b:Hide() end
@@ -276,10 +290,17 @@ StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
     button1 = YES,
     button2 = NO,
     OnAccept = function()
+        local toRoll = {}
         for rollID, slot in pairs(activeRolls) do
             if slot and not slot.rolled and not slot.timedOut then
+                toRoll[#toRoll + 1] = rollID
+            end
+        end
+        for _, rollID in ipairs(toRoll) do
+            local slot = activeRolls[rollID]
+            if slot then
                 if rollID < 9000 then
-                    RollOnLoot(rollID, 0)
+                    pcall(RollOnLoot, rollID, 0)
                 end
                 slot.rolled = true
                 for _, b in pairs(slot.Buttons) do b:Hide() end
@@ -306,7 +327,8 @@ end
 -- Title text
 local titleText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 titleText:SetPoint("TOPLEFT", MainFrame, "TOPLEFT", 10, -10)
-titleText:SetText("|cFFFFD700SimpleRoll|r")
+local addonVersion = C_AddOns and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or GetAddOnMetadata(ADDON_NAME, "Version") or ""
+titleText:SetText("|cFFFFD700SimpleRoll|r |cFF888888v" .. addonVersion .. "|r")
 
 -- Close button (hidden until all slots resolved)
 local closeBtn = CreateFrame("Button", nil, MainFrame, "UIPanelCloseButton")
@@ -484,13 +506,13 @@ local function AcquireSlot()
 
 
         btn:SetScript("OnClick", function()
-            if slot.rollID and not slot.rolled then
+            if slot.rollID and not slot.rolled and not slot.timedOut then
                 slot.rolled = true
 
                 -- Test rolls use fake IDs (9000+), don't call RollOnLoot
                 local isTest = slot.rollID >= 9000
                 if not isTest then
-                    RollOnLoot(slot.rollID, def.type)
+                    pcall(RollOnLoot, slot.rollID, def.type)
                 end
 
                 -- Hide buttons, show choice in button area
@@ -918,14 +940,18 @@ local PAT_ROLL_YOU_WON   = GlobalStringToPattern(LOOT_ROLL_YOU_WON)
 local PAT_ROLL_ALL_PASS  = GlobalStringToPattern(LOOT_ROLL_ALL_PASSED)
 
 local function FindSlotByItemID(itemID)
+    local bestRollID, bestSlot = nil, nil
     for rollID, slot in pairs(activeRolls) do
         if not slot.over and slot.itemLink then
             if slot.itemLink:match("item:(%d+)") == itemID then
-                return rollID, slot
+                if not bestRollID or rollID < bestRollID then
+                    bestRollID = rollID
+                    bestSlot = slot
+                end
             end
         end
     end
-    return nil, nil
+    return bestRollID, bestSlot
 end
 
 local function TryMatch(msg, pat)

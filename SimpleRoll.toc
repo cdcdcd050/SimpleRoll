@@ -3,7 +3,7 @@
 ## Notes: Simple group loot roll UI replacement
 ## Notes-koKR: 심플한 그룹 전리품 주사위 UI
 ## Author: CH00
-## Version: 1.1.0
+## Version: 1.1.1
 ## SavedVariables: SimpleRollDB
 
 SimpleRoll.lua
