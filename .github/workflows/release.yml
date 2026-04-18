@@ -1,4 +1,4 @@
-name: Package and Release
+name: Release
 
 on:
   push:
@@ -14,9 +14,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: BigWigsMods/packager@v2
-        with:
-          args: -g bcc
+      - name: Build zip
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          STAGE="/tmp/build/SimpleRoll"
+          mkdir -p "$STAGE"
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.pkgmeta' \
+            --exclude='*.md' \
+            --exclude='doc' \
+            --exclude='*.zip' \
+            ./ "$STAGE/"
+          cd /tmp/build
+          zip -r "${GITHUB_WORKSPACE}/SimpleRoll-${VERSION}.zip" SimpleRoll
+
+      - name: Create GitHub release
         env:
-          CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "SimpleRoll-${GITHUB_REF_NAME}.zip" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes

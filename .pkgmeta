@@ -1,8 +1,0 @@
-package-as: SimpleRoll
-
-ignore:
-  - "*.md"
-  - doc
-  - "*.zip"
-  - .gitignore
-  - .github
