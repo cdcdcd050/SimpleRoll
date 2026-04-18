@@ -1,5 +1,7 @@
 package-as: SimpleRoll
 
+manual-changelog: CHANGELOG.md
+
 ignore:
   - .github
   - .gitattributes

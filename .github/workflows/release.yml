@@ -22,8 +22,8 @@ jobs:
           rsync -a \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='.pkgmeta' \
-            --exclude='*.md' \
+            --exclude='.gitattributes' \
+            --exclude='CLAUDE.md' \
             --exclude='doc' \
             --exclude='*.zip' \
             ./ "$STAGE/"
