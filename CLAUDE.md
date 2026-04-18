@@ -22,3 +22,6 @@ WoW TBC 클래식 전용 그룹 롤(Need/Greed/Pass) UI 교체 애드온. 단일
 - `ApplyRoll` → `MarkRolled` 단일 경로 (개별·일괄 공용)
 - 타임아웃은 `MarkTimedOut` 헬퍼 (`SlotOnUpdate` + `CANCEL_LOOT_ROLL` 공용)
 - `ReleaseSlot`은 forward declaration
+
+## BoP 롤 확인 (중요)
+`RollOnLoot(id, NEED/GREED)`를 **BoP 아이템**에 호출하면 서버가 `CONFIRM_LOOT_ROLL` 이벤트로 재확인을 요구하며, `ConfirmLootRoll(id, rollType)`을 호출해야 실제 롤이 등록된다. 블리자드 `GroupLootFrame`이 이 이벤트를 받아 YES/NO 팝업을 띄우지만, 이 애드온은 해당 프레임을 숨기므로 이벤트를 직접 처리한다 — 모두 입찰/차비 시 아이템 수만큼 팝업이 쌓이면 UX가 무너지고, 애드온 버튼을 누른 것 자체가 이미 명시적 선택이므로 **팝업 없이 즉시 `ConfirmLootRoll`로 자동 확인**한다. 이 처리를 빼먹으면 **파랑·보라 아이템 롤이 서버에 전혀 등록되지 않는** 치명적 버그가 된다 (v1.1.1 fix).

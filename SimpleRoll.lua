@@ -116,6 +116,8 @@ local COLOR_PASS  = { 0.7, 0.7, 0.7 }
 
 local GetItemInfo = C_Item and C_Item.GetItemInfo or _G.GetItemInfo
 local GetItemQualityColor = C_Item and C_Item.GetItemQualityColor or _G.GetItemQualityColor
+local GetAddOnMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
+local VERSION = (GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version")) or ""
 
 -- ===========================================================
 -- State
@@ -232,6 +234,14 @@ local countdownText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal
 countdownText:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -6, -1)
 countdownText:SetTextColor(0.6, 0.6, 0.6)
 countdownText:Hide()
+
+-- Version label (bottom-right, always visible)
+local versionText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+versionText:SetPoint("BOTTOMRIGHT", MainFrame, "BOTTOMRIGHT", -8, 6)
+versionText:SetTextColor(0.45, 0.45, 0.45)
+if VERSION ~= "" then
+    versionText:SetText("v" .. VERSION)
+end
 
 -- ===========================================================
 -- Roll application (shared by slot buttons and mass buttons)
@@ -764,9 +774,10 @@ EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("START_LOOT_ROLL")
 EventFrame:RegisterEvent("CANCEL_LOOT_ROLL")
+EventFrame:RegisterEvent("CONFIRM_LOOT_ROLL")
 EventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
-EventFrame:SetScript("OnEvent", function(_, event, arg1)
+EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         SimpleRollDB = SimpleRollDB or {}
         local pos = SimpleRollDB.pos
@@ -810,6 +821,14 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1)
             end
             MainFrame:UpdateCloseButton()
         end
+
+    elseif event == "CONFIRM_LOOT_ROLL" then
+        -- BoP items require a second server round-trip: RollOnLoot fires this
+        -- event, and the actual roll is only recorded after ConfirmLootRoll.
+        -- Blizzard's GroupLootFrame would show a YES/NO popup, but the user
+        -- already made an explicit choice through our UI (including mass-roll
+        -- buttons where a popup per item would be unworkable), so auto-confirm.
+        ConfirmLootRoll(arg1, arg2)
     end
 end)
 
