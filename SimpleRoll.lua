@@ -3,39 +3,91 @@ local ADDON_NAME = "SimpleRoll"
 -- ===========================================================
 -- Localization
 -- ===========================================================
-local L = {}
-if GetLocale() == "koKR" then
-    L.need_all = "모두 입찰"
-    L.need_all_tip = "모든 아이템 입찰"
-    L.greed_all = "모두 차비"
-    L.greed_all_tip = "모든 아이템 차비"
-    L.pass_all = "모두 포기"
-    L.pass_all_tip = "모든 아이템 포기"
-    L.pass_all_confirm = "모든 아이템을 포기하시겠습니까?"
-    L.need = "입찰"
-    L.greed = "차비"
-    L.pass = "포기"
-    L.seconds = "%d초"
-    L.loaded = "|cFFFFD700SimpleRoll|r 로드됨. /srsr 로 미리보기"
-    L.test_spawned = "|cFFFFD700SimpleRoll:|r 미리보기 %d개 생성"
-    L.cmd_preview = "미리보기 (랜덤 3~5개)"
-    L.cmd_reset = "reset - 위치 초기화"
-else
-    L.need_all = "Need All"
-    L.need_all_tip = "Need on all items"
-    L.greed_all = "Greed All"
-    L.greed_all_tip = "Greed on all items"
-    L.pass_all = "Pass All"
-    L.pass_all_tip = "Pass on all items"
-    L.pass_all_confirm = "Pass on all items?"
-    L.need = "Need"
-    L.greed = "Greed"
-    L.pass = "Pass"
-    L.seconds = "%ds"
-    L.loaded = "|cFFFFD700SimpleRoll|r loaded. /srsr to preview"
-    L.test_spawned = "|cFFFFD700SimpleRoll:|r Spawned %d preview rolls"
-    L.cmd_preview = "Preview (random 3~5 items)"
-    L.cmd_reset = "reset - Reset position"
+local PREFIX = "|cFFFFD700SimpleRoll:|r "
+local locale = GetLocale()
+
+local L = {
+    NEED_ALL         = "Need All",
+    NEED_ALL_TIP     = "Need on all items",
+    GREED_ALL        = "Greed All",
+    GREED_ALL_TIP    = "Greed on all items",
+    PASS_ALL         = "Pass All",
+    PASS_ALL_TIP     = "Pass on all items",
+    PASS_ALL_CONFIRM = "Pass on all items?",
+    NEED             = "Need",
+    GREED            = "Greed",
+    PASS             = "Pass",
+    SECONDS_FMT      = "%ds",
+    TEST_SPAWNED     = "Spawned %d preview rolls",
+    TEST_RESET       = "Reset. Run again to preview.",
+    LOADING_CACHE    = "Loading item cache...",
+    POS_RESET        = "Position reset.",
+    HELP_HEADER      = "Commands:",
+    CMD_PREVIEW      = "Preview (random 3~5 items)",
+    CMD_RESET        = "reset - Reset position",
+}
+
+if locale == "koKR" then
+    L.NEED_ALL         = "모두 입찰"
+    L.NEED_ALL_TIP     = "모든 아이템 입찰"
+    L.GREED_ALL        = "모두 차비"
+    L.GREED_ALL_TIP    = "모든 아이템 차비"
+    L.PASS_ALL         = "모두 포기"
+    L.PASS_ALL_TIP     = "모든 아이템 포기"
+    L.PASS_ALL_CONFIRM = "모든 아이템을 포기하시겠습니까?"
+    L.NEED             = "입찰"
+    L.GREED            = "차비"
+    L.PASS             = "포기"
+    L.SECONDS_FMT      = "%d초"
+    L.TEST_SPAWNED     = "미리보기 %d개 생성"
+    L.TEST_RESET       = "초기화됨. 다시 실행하여 미리보기."
+    L.LOADING_CACHE    = "아이템 캐시 로딩 중..."
+    L.POS_RESET        = "위치 초기화됨."
+    L.HELP_HEADER      = "명령어:"
+    L.CMD_PREVIEW      = "미리보기 (랜덤 3~5개)"
+    L.CMD_RESET        = "reset - 위치 초기화"
+end
+
+if locale == "zhCN" then
+    L.NEED_ALL         = "全部需求"
+    L.NEED_ALL_TIP     = "对所有物品需求"
+    L.GREED_ALL        = "全部贪婪"
+    L.GREED_ALL_TIP    = "对所有物品贪婪"
+    L.PASS_ALL         = "全部放弃"
+    L.PASS_ALL_TIP     = "放弃所有物品"
+    L.PASS_ALL_CONFIRM = "放弃所有物品？"
+    L.NEED             = "需求"
+    L.GREED            = "贪婪"
+    L.PASS             = "放弃"
+    L.SECONDS_FMT      = "%d秒"
+    L.TEST_SPAWNED     = "生成 %d 个预览掷骰"
+    L.TEST_RESET       = "已重置。再次运行以预览。"
+    L.LOADING_CACHE    = "正在加载物品缓存..."
+    L.POS_RESET        = "位置已重置。"
+    L.HELP_HEADER      = "命令："
+    L.CMD_PREVIEW      = "预览 (随机 3~5 个)"
+    L.CMD_RESET        = "reset - 重置位置"
+end
+
+if locale == "deDE" then
+    L.NEED_ALL         = "Alle Bedarf"
+    L.NEED_ALL_TIP     = "Auf alle Gegenstände Bedarf"
+    L.GREED_ALL        = "Alle Gier"
+    L.GREED_ALL_TIP    = "Auf alle Gegenstände Gier"
+    L.PASS_ALL         = "Alle Passen"
+    L.PASS_ALL_TIP     = "Auf alle Gegenstände passen"
+    L.PASS_ALL_CONFIRM = "Auf alle Gegenstände passen?"
+    L.NEED             = "Bedarf"
+    L.GREED            = "Gier"
+    L.PASS             = "Passen"
+    L.SECONDS_FMT      = "%ds"
+    L.TEST_SPAWNED     = "%d Vorschau-Würfe erzeugt"
+    L.TEST_RESET       = "Zurückgesetzt. Erneut ausführen für Vorschau."
+    L.LOADING_CACHE    = "Lade Item-Cache..."
+    L.POS_RESET        = "Position zurückgesetzt."
+    L.HELP_HEADER      = "Befehle:"
+    L.CMD_PREVIEW      = "Vorschau (zufällig 3~5 Gegenstände)"
+    L.CMD_RESET        = "reset - Position zurücksetzen"
 end
 
 -- ===========================================================
@@ -197,7 +249,7 @@ local function MarkTimedOut(slot)
     slot.timedOut = true
     slot:SetScript("OnUpdate", nil)
     for _, btn in pairs(slot.Buttons) do btn:Hide() end
-    slot.ResultText:SetText(L.pass)
+    slot.ResultText:SetText(L.PASS)
     slot.ResultText:SetTextColor(COLOR_PASS[1], COLOR_PASS[2], COLOR_PASS[3])
     slot.ResultText:Show()
     slot.TimerBar:Hide()
@@ -240,22 +292,22 @@ local function RollAll(rollType, label, color)
     MainFrame:UpdateCloseButton()
 end
 
-local needAllBtn = MakeTipButton(L.need_all, L.need_all_tip)
-needAllBtn:SetScript("OnClick", function() RollAll(ROLL_NEED, L.need, COLOR_NEED) end)
+local needAllBtn = MakeTipButton(L.NEED_ALL, L.NEED_ALL_TIP)
+needAllBtn:SetScript("OnClick", function() RollAll(ROLL_NEED, L.NEED, COLOR_NEED) end)
 
-local greedAllBtn = MakeTipButton(L.greed_all, L.greed_all_tip)
-greedAllBtn:SetScript("OnClick", function() RollAll(ROLL_GREED, L.greed, COLOR_GREED) end)
+local greedAllBtn = MakeTipButton(L.GREED_ALL, L.GREED_ALL_TIP)
+greedAllBtn:SetScript("OnClick", function() RollAll(ROLL_GREED, L.GREED, COLOR_GREED) end)
 
 StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
-    text = L.pass_all_confirm,
+    text = L.PASS_ALL_CONFIRM,
     button1 = YES,
     button2 = NO,
-    OnAccept = function() RollAll(ROLL_PASS, L.pass, COLOR_PASS) end,
+    OnAccept = function() RollAll(ROLL_PASS, L.PASS, COLOR_PASS) end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
 }
-local passAllBtn = MakeTipButton(L.pass_all, L.pass_all_tip)
+local passAllBtn = MakeTipButton(L.PASS_ALL, L.PASS_ALL_TIP)
 passAllBtn:SetScript("OnClick", function() StaticPopup_Show("SIMPLEROLL_PASS_ALL") end)
 
 -- ===========================================================
@@ -278,7 +330,7 @@ local function FrameCountdown(self)
     if rem <= 0 then
         CloseAllSlots()
     else
-        countdownText:SetText(string.format(L.seconds, math.ceil(rem)))
+        countdownText:SetText(string.format(L.SECONDS_FMT, math.ceil(rem)))
         countdownText:Show()
     end
 end
@@ -310,15 +362,15 @@ end
 -- Slot construction
 -- ===========================================================
 local BUTTON_DEFS = {
-    { key = "pass",  size = CLOSE_BUTTON_SIZE, rollType = ROLL_PASS,  label = L.pass,  color = COLOR_PASS,
+    { key = "pass",  size = CLOSE_BUTTON_SIZE, rollType = ROLL_PASS,  label = L.PASS,  color = COLOR_PASS,
       normal = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
       pushed = "Interface\\Buttons\\UI-Panel-MinimizeButton-Down",
       highlight = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight" },
-    { key = "greed", size = BUTTON_SIZE,       rollType = ROLL_GREED, label = L.greed, color = COLOR_GREED,
+    { key = "greed", size = BUTTON_SIZE,       rollType = ROLL_GREED, label = L.GREED, color = COLOR_GREED,
       normal = "Interface\\Buttons\\UI-GroupLoot-Coin-Up",
       pushed = "Interface\\Buttons\\UI-GroupLoot-Coin-Down",
       highlight = "Interface\\Buttons\\UI-GroupLoot-Coin-Highlight" },
-    { key = "need",  size = BUTTON_SIZE,       rollType = ROLL_NEED,  label = L.need,  color = COLOR_NEED,
+    { key = "need",  size = BUTTON_SIZE,       rollType = ROLL_NEED,  label = L.NEED,  color = COLOR_NEED,
       normal = "Interface\\Buttons\\UI-GroupLoot-Dice-Up",
       pushed = "Interface\\Buttons\\UI-GroupLoot-Dice-Down",
       highlight = "Interface\\Buttons\\UI-GroupLoot-Dice-Highlight" },
@@ -675,7 +727,7 @@ local function TestRolls(count, retryNum)
         wipe(activeRolls)
         testNextIndex = 1
         MainFrame:UpdateLayout()
-        print("|cFFFFD700SimpleRoll:|r Reset. Run again to preview.")
+        print(PREFIX .. L.TEST_RESET)
         return
     end
 
@@ -696,13 +748,13 @@ local function TestRolls(count, retryNum)
     if added < target and retryNum < 3 then
         C_Timer.After(0.5, function() TestRolls(count, retryNum + 1) end)
         if retryNum == 0 then
-            print("|cFFFFD700SimpleRoll:|r Loading item cache...")
+            print(PREFIX .. L.LOADING_CACHE)
         end
         return
     end
 
     testNextIndex = testNextIndex + target
-    print(string.format(L.test_spawned, added))
+    print(PREFIX .. string.format(L.TEST_SPAWNED, added))
 end
 
 -- ===========================================================
@@ -774,10 +826,10 @@ SlashCmdList["SIMPLEROLL"] = function(msg)
         wipe(SimpleRollDB)
         MainFrame:ClearAllPoints()
         MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
-        print("|cFFFFD700SimpleRoll:|r Position reset.")
+        print(PREFIX .. L.POS_RESET)
     else
-        print("|cFFFFD700SimpleRoll:|r")
-        print("  /srsr - " .. L.cmd_preview)
-        print("  /srsr " .. L.cmd_reset)
+        print(PREFIX .. L.HELP_HEADER)
+        print("  /srsr - " .. L.CMD_PREVIEW)
+        print("  /srsr " .. L.CMD_RESET)
     end
 end

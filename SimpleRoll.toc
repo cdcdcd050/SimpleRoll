@@ -2,8 +2,10 @@
 ## Title: SimpleRoll
 ## Notes: Simple group loot roll UI replacement
 ## Notes-koKR: 심플한 그룹 전리품 주사위 UI
+## Notes-zhCN: 简易团队拾取掷骰界面替换
+## Notes-deDE: Einfacher Gruppen-Loot-Würfel-UI-Ersatz
 ## Author: CH00
-## Version: 1.0.0
+## Version: 1.1.0
 ## SavedVariables: SimpleRollDB
 
 SimpleRoll.lua
