@@ -176,16 +176,21 @@ needAllBtn:SetScript("OnClick", function()
     end
     for _, rollID in ipairs(toRoll) do
         local slot = activeRolls[rollID]
-        if slot then
-            if rollID < 9000 then
-                pcall(RollOnLoot, rollID, 1)
-            end
+        if slot and not slot.rolled and not slot.timedOut then
             slot.rolled = true
-            for _, b in pairs(slot.Buttons) do b:Hide() end
-            slot.ResultText:SetText(string.format(L.you_rolled, L.need))
-            slot.ResultText:SetTextColor(0.4, 1, 0.4)
-            slot.ResultText:Show()
-            slot.TimerBar:Hide()
+            if rollID < 9000 then
+                local ok = pcall(RollOnLoot, rollID, 1)
+                if not ok then
+                    slot.rolled = false
+                end
+            end
+            if slot.rolled then
+                for _, b in pairs(slot.Buttons) do b:Hide() end
+                slot.ResultText:SetText(string.format(L.you_rolled, L.need))
+                slot.ResultText:SetTextColor(0.4, 1, 0.4)
+                slot.ResultText:Show()
+                slot.TimerBar:Hide()
+            end
         end
     end
     MainFrame:UpdateCloseButton()
@@ -240,16 +245,21 @@ greedAllBtn:SetScript("OnClick", function()
     end
     for _, rollID in ipairs(toRoll) do
         local slot = activeRolls[rollID]
-        if slot then
-            if rollID < 9000 then
-                pcall(RollOnLoot, rollID, 2)
-            end
+        if slot and not slot.rolled and not slot.timedOut then
             slot.rolled = true
-            for _, b in pairs(slot.Buttons) do b:Hide() end
-            slot.ResultText:SetText(string.format(L.you_rolled, L.greed))
-            slot.ResultText:SetTextColor(0.4, 0.6, 1)
-            slot.ResultText:Show()
-            slot.TimerBar:Hide()
+            if rollID < 9000 then
+                local ok = pcall(RollOnLoot, rollID, 2)
+                if not ok then
+                    slot.rolled = false
+                end
+            end
+            if slot.rolled then
+                for _, b in pairs(slot.Buttons) do b:Hide() end
+                slot.ResultText:SetText(string.format(L.you_rolled, L.greed))
+                slot.ResultText:SetTextColor(0.4, 0.6, 1)
+                slot.ResultText:Show()
+                slot.TimerBar:Hide()
+            end
         end
     end
     MainFrame:UpdateCloseButton()
@@ -308,16 +318,21 @@ StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
         end
         for _, rollID in ipairs(toRoll) do
             local slot = activeRolls[rollID]
-            if slot then
-                if rollID < 9000 then
-                    pcall(RollOnLoot, rollID, 0)
-                end
+            if slot and not slot.rolled and not slot.timedOut then
                 slot.rolled = true
-                for _, b in pairs(slot.Buttons) do b:Hide() end
-                slot.ResultText:SetText(string.format(L.you_rolled, L.pass))
-                slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
-                slot.ResultText:Show()
-                slot.TimerBar:Hide()
+                if rollID < 9000 then
+                    local ok = pcall(RollOnLoot, rollID, 0)
+                    if not ok then
+                        slot.rolled = false
+                    end
+                end
+                if slot.rolled then
+                    for _, b in pairs(slot.Buttons) do b:Hide() end
+                    slot.ResultText:SetText(string.format(L.you_rolled, L.pass))
+                    slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
+                    slot.ResultText:Show()
+                    slot.TimerBar:Hide()
+                end
             end
         end
         MainFrame:UpdateCloseButton()
@@ -522,7 +537,11 @@ local function AcquireSlot()
                 -- Test rolls use fake IDs (9000+), don't call RollOnLoot
                 local isTest = slot.rollID >= 9000
                 if not isTest then
-                    pcall(RollOnLoot, slot.rollID, def.type)
+                    local ok = pcall(RollOnLoot, slot.rollID, def.type)
+                    if not ok then
+                        slot.rolled = false
+                        return
+                    end
                 end
 
                 -- Hide buttons, show choice in button area
@@ -532,7 +551,6 @@ local function AcquireSlot()
                 slot.ResultText:Show()
                 slot.TimerBar:Hide()
                 MainFrame:UpdateCloseButton()
-
             end
         end)
 
@@ -830,12 +848,18 @@ local PAT_ROLL_ALL_PASS  = GlobalStringToPattern(LOOT_ROLL_ALL_PASSED)
 
 local function FindSlotByItemID(itemID)
     local bestRollID, bestSlot = nil, nil
+    local bestRolled = false
     for rollID, slot in pairs(activeRolls) do
         if not slot.over and slot.itemLink then
             if slot.itemLink:match("item:(%d+)") == itemID then
-                if not bestRollID or rollID < bestRollID then
+                local slotRolled = slot.rolled or slot.timedOut
+                -- Prefer slots where user already rolled (chat results belong to them)
+                if not bestRollID
+                    or (slotRolled and not bestRolled)
+                    or (slotRolled == bestRolled and rollID < bestRollID) then
                     bestRollID = rollID
                     bestSlot = slot
+                    bestRolled = slotRolled
                 end
             end
         end
