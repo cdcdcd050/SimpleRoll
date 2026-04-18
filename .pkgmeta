@@ -1,0 +1,8 @@
+package-as: SimpleRoll
+
+ignore:
+  - .github
+  - .gitattributes
+  - .pkgmeta
+  - CLAUDE.md
+  - doc
