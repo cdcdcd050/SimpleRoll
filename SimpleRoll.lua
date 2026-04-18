@@ -1,8 +1,10 @@
 local ADDON_NAME = "SimpleRoll"
 
+-- ===========================================================
+-- Localization
+-- ===========================================================
 local L = {}
 if GetLocale() == "koKR" then
-    L.title = "%s의 전리품"
     L.need_all = "모두 입찰"
     L.need_all_tip = "모든 아이템 입찰"
     L.greed_all = "모두 차비"
@@ -18,12 +20,7 @@ if GetLocale() == "koKR" then
     L.test_spawned = "|cFFFFD700SimpleRoll:|r 미리보기 %d개 생성"
     L.cmd_preview = "미리보기 (랜덤 3~5개)"
     L.cmd_reset = "reset - 위치 초기화"
-    L.hint = "드래그로 이동"
-    L.you_rolled = "내 선택: %s"
-    L.winner = "%s 획득"
-    L.all_passed = "전원 포기"
 else
-    L.title = "%s's Loot"
     L.need_all = "Need All"
     L.need_all_tip = "Need on all items"
     L.greed_all = "Greed All"
@@ -39,567 +36,416 @@ else
     L.test_spawned = "|cFFFFD700SimpleRoll:|r Spawned %d preview rolls"
     L.cmd_preview = "Preview (random 3~5 items)"
     L.cmd_reset = "reset - Reset position"
-    L.hint = "Drag to move"
-    L.you_rolled = "You: %s"
-    L.winner = "%s won"
-    L.all_passed = "All passed"
 end
 
-local FRAME_WIDTH = 298
-local SLOT_HEIGHT = 48
-local HEADER_HEIGHT = 24
-local FOOTER_HEIGHT = 38
-local PADDING = 8
-local BUTTON_SIZE = 28
-local ICON_SIZE = 25
+-- ===========================================================
+-- Constants
+-- ===========================================================
+local DEFAULT_WIDTH      = 277
+local SLOT_HEIGHT        = 40
+local HEADER_HEIGHT      = 8
+local FOOTER_HEIGHT      = 38
+local PADDING            = 14
+local LEFT_PADDING       = 4
+local BUTTON_SIZE        = 26
+local CLOSE_BUTTON_SIZE  = 18
+local ICON_SIZE          = 30
+local CLOSE_DELAY        = 0.5
+local MAX_VISIBLE_SLOTS  = 4
+local SLOT_SPACING       = 1
+local RIGHT_MARGIN       = 6
 
-local EXPIRE_WON = 8
-local EXPIRE_LOST = 5
-local EXPIRE_ROLLED = 30
+local ROLL_NEED, ROLL_GREED, ROLL_PASS = 1, 2, 0
+local TEST_ID_BASE = 9000
+
+local COLOR_NEED  = { 0.4, 1, 0.4 }
+local COLOR_GREED = { 0.4, 0.6, 1 }
+local COLOR_PASS  = { 0.7, 0.7, 0.7 }
 
 local GetItemInfo = C_Item and C_Item.GetItemInfo or _G.GetItemInfo
 local GetItemQualityColor = C_Item and C_Item.GetItemQualityColor or _G.GetItemQualityColor
 
+-- ===========================================================
+-- State
+-- ===========================================================
 local activeRolls = {}
 local pendingRolls = {}
 local slotPool = {}
-local ReleaseSlot
-local InitChatResults, UpdateSlotResultDisplay, FindEntryByName
-local FinishSlotWithWinner, FinishSlotAllPassed
+local nextAddedOrder = 1
+local ReleaseSlot  -- forward
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
 
-------------------------------------------------------------
+-- ===========================================================
 -- Main Frame
-------------------------------------------------------------
+-- ===========================================================
 local MainFrame = CreateFrame("Frame", "SimpleRollFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
-MainFrame:SetSize(FRAME_WIDTH, HEADER_HEIGHT + PADDING * 2)
+MainFrame:SetSize(DEFAULT_WIDTH, HEADER_HEIGHT + PADDING * 2)
 MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
 MainFrame:SetFrameStrata("DIALOG")
 MainFrame:SetClampedToScreen(true)
 MainFrame:Hide()
-
 MainFrame:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border",
-    tile = true, tileSize = 32, edgeSize = 24,
-    insets = { left = 6, right = 6, top = 6, bottom = 6 },
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    tile = false, edgeSize = 1,
+    insets = { left = 0, right = 0, top = 0, bottom = 0 },
 })
-MainFrame:SetBackdropColor(0.03, 0.03, 0.03, 0.97)
-
+MainFrame:SetBackdropColor(0, 0, 0, 0.85)
+MainFrame:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
 MainFrame:SetMovable(true)
-MainFrame:SetResizable(true)
 MainFrame:EnableMouse(true)
 MainFrame:RegisterForDrag("LeftButton")
-if MainFrame.SetResizeBounds then
-    MainFrame:SetResizeBounds(200, 1)
-elseif MainFrame.SetMinResize then
-    MainFrame:SetMinResize(200, 1)
+
+local function SavePosition()
+    local point, _, rel, x, y = MainFrame:GetPoint()
+    SimpleRollDB.pos = { point = point, rel = rel, x = x, y = y }
 end
 
 MainFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
 MainFrame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    local point, _, rel, x, y = self:GetPoint()
-    SimpleRollDB = SimpleRollDB or {}
-    SimpleRollDB.pos = { point = point, rel = rel, x = x, y = y }
+    SavePosition()
 end)
 
--- Resize grip (bottom-right)
-local resizeGrip = CreateFrame("Button", nil, MainFrame)
-resizeGrip:SetSize(16, 16)
-resizeGrip:SetPoint("BOTTOMRIGHT", -4, 4)
-resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-resizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-resizeGrip:SetFrameLevel(MainFrame:GetFrameLevel() + 10)
-
-resizeGrip:SetScript("OnMouseDown", function()
-    MainFrame:StartSizing("BOTTOMRIGHT")
-end)
-resizeGrip:SetScript("OnMouseUp", function()
-    MainFrame:StopMovingOrSizing()
-    SimpleRollDB = SimpleRollDB or {}
-    SimpleRollDB.width = math.floor(MainFrame:GetWidth() + 0.5)
-    FRAME_WIDTH = SimpleRollDB.width
-    MainFrame:UpdateLayout()
+-- Scroll container
+local scrollFrame = CreateFrame("ScrollFrame", "SimpleRollScrollFrame", MainFrame, "UIPanelScrollFrameTemplate")
+scrollFrame:SetFrameLevel(MainFrame:GetFrameLevel() + 1)
+local scrollContent = CreateFrame("Frame", nil, scrollFrame)
+scrollContent:SetSize(1, 1)
+scrollFrame:SetScrollChild(scrollContent)
+scrollFrame:EnableMouseWheel(true)
+scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+    local step = 18
+    local max = math.max(0, scrollContent:GetHeight() - self:GetHeight())
+    local target = self:GetVerticalScroll() - delta * step
+    if target < 0 then target = 0 end
+    if target > max then target = max end
+    self:SetVerticalScroll(target)
 end)
 
-local function UpdateHeader() end
+do
+    local bar = _G["SimpleRollScrollFrameScrollBar"]
+    if bar then
+        bar:Hide()
+        bar:HookScript("OnShow", function(self) self:Hide() end)
+    end
+end
 
--- Need All button
-local needAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-needAllBtn:SetSize(80, 26)
-needAllBtn:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 },
-})
-needAllBtn:SetBackdropColor(0.05, 0.15, 0.05, 0.85)
-needAllBtn:SetBackdropBorderColor(0.3, 0.8, 0.3, 1)
+-- Custom scroll indicators (right thin bar + bottom gold line)
+local INDICATOR_WIDTH = 3
+local sideBar = CreateFrame("Frame", nil, MainFrame)
+sideBar:SetWidth(INDICATOR_WIDTH)
+sideBar:SetPoint("TOPRIGHT", scrollFrame, "TOPRIGHT", 4, 0)
+sideBar:SetPoint("BOTTOMRIGHT", scrollFrame, "BOTTOMRIGHT", 4, 0)
+local sideBarBg = sideBar:CreateTexture(nil, "BACKGROUND")
+sideBarBg:SetAllPoints()
+sideBarBg:SetColorTexture(0.2, 0.2, 0.2, 0.6)
+local sideBarThumb = sideBar:CreateTexture(nil, "OVERLAY")
+sideBarThumb:SetColorTexture(0.85, 0.85, 0.85, 0.9)
+sideBarThumb:SetWidth(INDICATOR_WIDTH)
+sideBarThumb:Hide()
 
-local needAllIcon = needAllBtn:CreateTexture(nil, "ARTWORK")
-needAllIcon:SetSize(14, 14)
-needAllIcon:SetPoint("LEFT", 4, 0)
-needAllIcon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Up")
+local bottomHL = MainFrame:CreateTexture(nil, "OVERLAY")
+bottomHL:SetColorTexture(0.75, 0.6, 0.05, 0.95)
+bottomHL:SetPoint("TOPLEFT", scrollFrame, "BOTTOMLEFT", 0, 0)
+bottomHL:SetPoint("BOTTOMRIGHT", scrollFrame, "BOTTOMRIGHT", 0, -2)
+bottomHL:Hide()
 
-local needAllText = needAllBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 3, 0)
-needAllText:SetText(L.need_all)
-needAllText:SetTextColor(0.4, 1, 0.4)
+local function UpdateIndicatorThumb()
+    local contentH = scrollContent:GetHeight()
+    local viewH = scrollFrame:GetHeight()
+    if contentH <= viewH or viewH <= 0 then
+        sideBarThumb:Hide()
+        bottomHL:Hide()
+        return
+    end
+    sideBarThumb:Show()
+    local trackH = sideBar:GetHeight()
+    local thumbH = math.max(12, math.floor(trackH * viewH / contentH))
+    sideBarThumb:SetHeight(thumbH)
+    local maxScroll = contentH - viewH
+    local offset = scrollFrame:GetVerticalScroll()
+    local available = trackH - thumbH
+    local y = (maxScroll > 0) and math.floor(available * offset / maxScroll) or 0
+    sideBarThumb:ClearAllPoints()
+    sideBarThumb:SetPoint("TOP", sideBar, "TOP", 0, -y)
+    bottomHL:SetShown(offset < maxScroll - 0.5)
+end
 
-needAllBtn:SetScript("OnEnter", function(self)
-    self:SetBackdropBorderColor(0.5, 1, 0.5, 1)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(L.need_all_tip, 1, 1, 1)
-    GameTooltip:Show()
-end)
-needAllBtn:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(0.3, 0.8, 0.3, 1)
-    GameTooltip:Hide()
-end)
-needAllBtn:SetScript("OnMouseDown", function(self)
-    self:SetBackdropColor(0.02, 0.08, 0.02, 0.95)
-    needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 4, -1)
-end)
-needAllBtn:SetScript("OnMouseUp", function(self)
-    self:SetBackdropColor(0.05, 0.15, 0.05, 0.85)
-    needAllText:SetPoint("LEFT", needAllIcon, "RIGHT", 3, 0)
-end)
-needAllBtn:SetScript("OnClick", function()
-    local toRoll = {}
-    for rollID, slot in pairs(activeRolls) do
-        if slot and not slot.rolled and not slot.timedOut then
-            toRoll[#toRoll + 1] = rollID
+scrollFrame:SetScript("OnVerticalScroll", UpdateIndicatorThumb)
+
+-- Countdown (shown after all rolls resolved, before auto-close)
+local countdownText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+countdownText:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -6, -1)
+countdownText:SetTextColor(0.6, 0.6, 0.6)
+countdownText:Hide()
+
+-- ===========================================================
+-- Roll application (shared by slot buttons and mass buttons)
+-- ===========================================================
+local function MarkRolled(slot, label, color)
+    slot:SetScript("OnUpdate", nil)
+    for _, btn in pairs(slot.Buttons) do btn:Hide() end
+    slot.ResultText:SetText(label)
+    slot.ResultText:SetTextColor(color[1], color[2], color[3])
+    slot.ResultText:Show()
+    slot.TimerBar:Hide()
+end
+
+local function MarkTimedOut(slot)
+    slot.timedOut = true
+    slot:SetScript("OnUpdate", nil)
+    for _, btn in pairs(slot.Buttons) do btn:Hide() end
+    slot.ResultText:SetText(L.pass)
+    slot.ResultText:SetTextColor(COLOR_PASS[1], COLOR_PASS[2], COLOR_PASS[3])
+    slot.ResultText:Show()
+    slot.TimerBar:Hide()
+end
+
+local function ApplyRoll(slot, rollType, label, color)
+    if not slot.rollID or slot.rolled or slot.timedOut then return false end
+    slot.rolled = true
+    if slot.rollID < TEST_ID_BASE then
+        local ok = pcall(RollOnLoot, slot.rollID, rollType)
+        if not ok then
+            slot.rolled = false
+            return false
         end
     end
-    for _, rollID in ipairs(toRoll) do
-        local slot = activeRolls[rollID]
-        if slot and not slot.rolled and not slot.timedOut then
-            slot.rolled = true
-            if rollID < 9000 then
-                local ok = pcall(RollOnLoot, rollID, 1)
-                if not ok then
-                    slot.rolled = false
-                end
-            end
-            if slot.rolled then
-                for _, b in pairs(slot.Buttons) do b:Hide() end
-                slot.ResultText:SetText(string.format(L.you_rolled, L.need))
-                slot.ResultText:SetTextColor(0.4, 1, 0.4)
-                slot.ResultText:Show()
-                slot.TimerBar:Hide()
-            end
-        end
-    end
-    MainFrame:UpdateCloseButton()
-end)
+    MarkRolled(slot, label, color)
+    return true
+end
 
--- Greed All button
-local greedAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-greedAllBtn:SetSize(80, 26)
-greedAllBtn:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 },
-})
-greedAllBtn:SetBackdropColor(0.05, 0.05, 0.15, 0.85)
-greedAllBtn:SetBackdropBorderColor(0.3, 0.5, 0.8, 1)
+-- ===========================================================
+-- Mass action buttons
+-- ===========================================================
+local function MakeTipButton(text, tip)
+    local btn = CreateFrame("Button", nil, MainFrame, "UIPanelButtonTemplate")
+    btn:SetText(text)
+    btn:SetSize(72, 24)
+    btn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(tip, 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return btn
+end
 
-local greedAllIcon = greedAllBtn:CreateTexture(nil, "ARTWORK")
-greedAllIcon:SetSize(14, 14)
-greedAllIcon:SetPoint("LEFT", 4, 0)
-greedAllIcon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Coin-Up")
-
-local greedAllText = greedAllBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-greedAllText:SetPoint("LEFT", greedAllIcon, "RIGHT", 3, 0)
-greedAllText:SetText(L.greed_all)
-greedAllText:SetTextColor(0.4, 0.6, 1)
-
-greedAllBtn:SetScript("OnEnter", function(self)
-    self:SetBackdropBorderColor(0.5, 0.7, 1, 1)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(L.greed_all_tip, 1, 1, 1)
-    GameTooltip:Show()
-end)
-greedAllBtn:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(0.3, 0.5, 0.8, 1)
-    GameTooltip:Hide()
-end)
-greedAllBtn:SetScript("OnMouseDown", function(self)
-    self:SetBackdropColor(0.02, 0.02, 0.08, 0.95)
-    greedAllText:SetPoint("LEFT", greedAllIcon, "RIGHT", 4, -1)
-end)
-greedAllBtn:SetScript("OnMouseUp", function(self)
-    self:SetBackdropColor(0.05, 0.05, 0.15, 0.85)
-    greedAllText:SetPoint("LEFT", greedAllIcon, "RIGHT", 3, 0)
-end)
-greedAllBtn:SetScript("OnClick", function()
-    local toRoll = {}
-    for rollID, slot in pairs(activeRolls) do
-        if slot and not slot.rolled and not slot.timedOut then
-            toRoll[#toRoll + 1] = rollID
-        end
-    end
-    for _, rollID in ipairs(toRoll) do
-        local slot = activeRolls[rollID]
-        if slot and not slot.rolled and not slot.timedOut then
-            slot.rolled = true
-            if rollID < 9000 then
-                local ok = pcall(RollOnLoot, rollID, 2)
-                if not ok then
-                    slot.rolled = false
-                end
-            end
-            if slot.rolled then
-                for _, b in pairs(slot.Buttons) do b:Hide() end
-                slot.ResultText:SetText(string.format(L.you_rolled, L.greed))
-                slot.ResultText:SetTextColor(0.4, 0.6, 1)
-                slot.ResultText:Show()
-                slot.TimerBar:Hide()
-            end
-        end
+local function RollAll(rollType, label, color)
+    for _, slot in pairs(activeRolls) do
+        ApplyRoll(slot, rollType, label, color)
     end
     MainFrame:UpdateCloseButton()
-end)
+end
 
--- Pass All button
-local passAllBtn = CreateFrame("Button", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
-passAllBtn:SetSize(80, 26)
-passAllBtn:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 },
-})
-passAllBtn:SetBackdropColor(0.15, 0.05, 0.05, 0.85)
-passAllBtn:SetBackdropBorderColor(0.8, 0.3, 0.3, 1)
+local needAllBtn = MakeTipButton(L.need_all, L.need_all_tip)
+needAllBtn:SetScript("OnClick", function() RollAll(ROLL_NEED, L.need, COLOR_NEED) end)
 
-local passAllIcon = passAllBtn:CreateTexture(nil, "ARTWORK")
-passAllIcon:SetSize(14, 14)
-passAllIcon:SetPoint("LEFT", 4, 0)
-passAllIcon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+local greedAllBtn = MakeTipButton(L.greed_all, L.greed_all_tip)
+greedAllBtn:SetScript("OnClick", function() RollAll(ROLL_GREED, L.greed, COLOR_GREED) end)
 
-local passAllText = passAllBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-passAllText:SetPoint("LEFT", passAllIcon, "RIGHT", 3, 0)
-passAllText:SetText(L.pass_all)
-passAllText:SetTextColor(1, 0.4, 0.4)
-
-passAllBtn:SetScript("OnEnter", function(self)
-    self:SetBackdropBorderColor(1, 0.5, 0.5, 1)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(L.pass_all_tip, 1, 1, 1)
-    GameTooltip:Show()
-end)
-passAllBtn:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(0.8, 0.3, 0.3, 1)
-    GameTooltip:Hide()
-end)
-passAllBtn:SetScript("OnMouseDown", function(self)
-    self:SetBackdropColor(0.08, 0.02, 0.02, 0.95)
-    passAllText:SetPoint("LEFT", passAllIcon, "RIGHT", 4, -1)
-end)
-passAllBtn:SetScript("OnMouseUp", function(self)
-    self:SetBackdropColor(0.15, 0.05, 0.05, 0.85)
-    passAllText:SetPoint("LEFT", passAllIcon, "RIGHT", 3, 0)
-end)
 StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
     text = L.pass_all_confirm,
     button1 = YES,
     button2 = NO,
-    OnAccept = function()
-        local toRoll = {}
-        for rollID, slot in pairs(activeRolls) do
-            if slot and not slot.rolled and not slot.timedOut then
-                toRoll[#toRoll + 1] = rollID
-            end
-        end
-        for _, rollID in ipairs(toRoll) do
-            local slot = activeRolls[rollID]
-            if slot and not slot.rolled and not slot.timedOut then
-                slot.rolled = true
-                if rollID < 9000 then
-                    local ok = pcall(RollOnLoot, rollID, 0)
-                    if not ok then
-                        slot.rolled = false
-                    end
-                end
-                if slot.rolled then
-                    for _, b in pairs(slot.Buttons) do b:Hide() end
-                    slot.ResultText:SetText(string.format(L.you_rolled, L.pass))
-                    slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
-                    slot.ResultText:Show()
-                    slot.TimerBar:Hide()
-                end
-            end
-        end
-        MainFrame:UpdateCloseButton()
-    end,
+    OnAccept = function() RollAll(ROLL_PASS, L.pass, COLOR_PASS) end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
 }
-passAllBtn:SetScript("OnClick", function()
-    StaticPopup_Show("SIMPLEROLL_PASS_ALL")
-end)
+local passAllBtn = MakeTipButton(L.pass_all, L.pass_all_tip)
+passAllBtn:SetScript("OnClick", function() StaticPopup_Show("SIMPLEROLL_PASS_ALL") end)
 
-local function AnchorTooltipAboveSlot(slot)
-    GameTooltip:SetOwner(slot, "ANCHOR_TOP", 0, 4)
+-- ===========================================================
+-- Close / countdown visibility
+-- ===========================================================
+local function CloseAllSlots()
+    for rollID, slot in pairs(activeRolls) do
+        ReleaseSlot(slot)
+        activeRolls[rollID] = nil
+    end
+    MainFrame.closeAt = nil
+    MainFrame:SetScript("OnUpdate", nil)
+    countdownText:Hide()
+    MainFrame:UpdateLayout()
 end
 
--- Title text
-local titleText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-titleText:SetPoint("TOPLEFT", MainFrame, "TOPLEFT", 10, -10)
-local addonVersion = C_AddOns and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or GetAddOnMetadata(ADDON_NAME, "Version") or ""
-titleText:SetText("|cFFFFD700SimpleRoll|r |cFF888888v" .. addonVersion .. "|r")
-
--- Close button (hidden until all slots resolved)
-local closeBtn = CreateFrame("Button", nil, MainFrame, "UIPanelCloseButton")
-closeBtn:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -2, -2)
-closeBtn:SetSize(30, 30)
-closeBtn:Hide()
-
--- Countdown text (left of close button)
-local countdownText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-countdownText:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
-countdownText:SetTextColor(0.6, 0.6, 0.6)
-countdownText:Hide()
-closeBtn:SetScript("OnClick", function()
-    for rollID, slot in pairs(activeRolls) do
-        slot:SetScript("OnUpdate", nil)
-        ReleaseSlot(slot)
+local function FrameCountdown(self)
+    if not self.closeAt then return end
+    local rem = self.closeAt - GetTime()
+    if rem <= 0 then
+        CloseAllSlots()
+    else
+        countdownText:SetText(string.format(L.seconds, math.ceil(rem)))
+        countdownText:Show()
     end
-    wipe(activeRolls)
-    MainFrame:UpdateLayout()
-end)
+end
 
 function MainFrame:UpdateCloseButton()
+    local anyPending = false
     for _, slot in pairs(activeRolls) do
-        if slot:IsShown() and not slot.rolled and not slot.timedOut and not slot.over then
-            closeBtn:Hide()
+        if slot:IsShown() and not slot.rolled and not slot.timedOut then
+            anyPending = true
+            break
+        end
+    end
+    needAllBtn:SetShown(anyPending)
+    greedAllBtn:SetShown(anyPending)
+    passAllBtn:SetShown(anyPending)
+    if anyPending then
+        self.closeAt = nil
+        self:SetScript("OnUpdate", nil)
+        countdownText:Hide()
+    else
+        if not self.closeAt then
+            self.closeAt = GetTime() + CLOSE_DELAY
+        end
+        self:SetScript("OnUpdate", FrameCountdown)
+    end
+end
+
+-- ===========================================================
+-- Slot construction
+-- ===========================================================
+local BUTTON_DEFS = {
+    { key = "pass",  size = CLOSE_BUTTON_SIZE, rollType = ROLL_PASS,  label = L.pass,  color = COLOR_PASS,
+      normal = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
+      pushed = "Interface\\Buttons\\UI-Panel-MinimizeButton-Down",
+      highlight = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight" },
+    { key = "greed", size = BUTTON_SIZE,       rollType = ROLL_GREED, label = L.greed, color = COLOR_GREED,
+      normal = "Interface\\Buttons\\UI-GroupLoot-Coin-Up",
+      pushed = "Interface\\Buttons\\UI-GroupLoot-Coin-Down",
+      highlight = "Interface\\Buttons\\UI-GroupLoot-Coin-Highlight" },
+    { key = "need",  size = BUTTON_SIZE,       rollType = ROLL_NEED,  label = L.need,  color = COLOR_NEED,
+      normal = "Interface\\Buttons\\UI-GroupLoot-Dice-Up",
+      pushed = "Interface\\Buttons\\UI-GroupLoot-Dice-Down",
+      highlight = "Interface\\Buttons\\UI-GroupLoot-Dice-Highlight" },
+}
+
+local function ShowSlotTooltip(slot)
+    GameTooltip:SetOwner(slot, "ANCHOR_TOP", 0, 4)
+    local isTest = slot.rollID and slot.rollID >= TEST_ID_BASE
+    if not isTest and slot.rollID and GetLootRollItemInfo then
+        local ok = pcall(GameTooltip.SetLootRollItem, GameTooltip, slot.rollID)
+        if ok and GameTooltip:NumLines() > 0 then
+            if IsShiftKeyDown() and GameTooltip_ShowCompareItem then
+                GameTooltip_ShowCompareItem()
+            end
+            GameTooltip:Show()
             return
         end
     end
-    closeBtn:Show()
+    if slot.itemLink then
+        GameTooltip:SetHyperlink(slot.itemLink)
+        if IsShiftKeyDown() and GameTooltip_ShowCompareItem then
+            GameTooltip_ShowCompareItem()
+        end
+    elseif slot.ItemName then
+        GameTooltip:SetText(slot.ItemName:GetText() or "", 1, 1, 1)
+    end
+    GameTooltip:Show()
 end
 
-MainFrame:SetScript("OnUpdate", function(self)
-    if not closeBtn:IsShown() then
-        countdownText:Hide()
-        return
-    end
-    local earliest = nil
-    for _, slot in pairs(activeRolls) do
-        if slot.expireAt then
-            local rem = slot.expireAt - GetTime()
-            if not earliest or rem < earliest then
-                earliest = rem
-            end
-        end
-    end
-    if earliest and earliest > 0 then
-        countdownText:SetText(string.format(L.seconds, math.ceil(earliest)))
-        countdownText:Show()
-    else
-        countdownText:Hide()
-    end
-end)
-
-------------------------------------------------------------
--- Roll Slot
-------------------------------------------------------------
-local function AcquireSlot()
-    local slot = table.remove(slotPool)
-    if slot then return slot end
-
-    slot = CreateFrame("Frame", nil, MainFrame, BackdropTemplateMixin and "BackdropTemplate")
+local function CreateSlot()
+    local slot = CreateFrame("Frame", nil, scrollContent, BackdropTemplateMixin and "BackdropTemplate")
     slot:SetHeight(SLOT_HEIGHT)
     slot:EnableMouse(true)
     slot:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 12,
-        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        tile = false, edgeSize = 1,
+        insets = { left = 0, right = 0, top = 0, bottom = 0 },
     })
-    slot:SetBackdropColor(0, 0, 0, 0.5)
-    slot:SetBackdropBorderColor(0.6, 0.6, 0.6, 0.6)
+    slot:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+    slot:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
     slot:RegisterForDrag("LeftButton")
     slot:SetScript("OnDragStart", function() MainFrame:StartMoving() end)
     slot:SetScript("OnDragStop", function()
         MainFrame:StopMovingOrSizing()
-        local point, _, rel, x, y = MainFrame:GetPoint()
-        SimpleRollDB = SimpleRollDB or {}
-        SimpleRollDB.pos = { point = point, rel = rel, x = x, y = y }
+        SavePosition()
     end)
 
     -- Icon
-    local iconBg = slot:CreateTexture(nil, "BACKGROUND")
-    iconBg:SetSize(ICON_SIZE + 4, ICON_SIZE + 4)
-    iconBg:SetPoint("LEFT", 6, 4)
-    iconBg:SetColorTexture(0, 0, 0, 0.8)
-    slot.IconBg = iconBg
+    local iconFrame = CreateFrame("Button", nil, slot)
+    iconFrame:SetSize(ICON_SIZE + 6, ICON_SIZE + 6)
+    iconFrame:SetPoint("LEFT", 5, 0)
 
-    local icon = slot:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(ICON_SIZE, ICON_SIZE)
-    icon:SetPoint("CENTER", iconBg, "CENTER")
-    icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    local icon = iconFrame:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 3, -3)
+    icon:SetPoint("BOTTOMRIGHT", -3, 3)
     slot.Icon = icon
 
-    -- Item name
-    local itemName = slot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    itemName:SetPoint("TOPLEFT", iconBg, "TOPRIGHT", 8, -2)
-    itemName:SetJustifyH("LEFT")
-    itemName:SetWordWrap(false)
-    slot.ItemName = itemName
+    iconFrame:SetScript("OnEnter", function(self) ShowSlotTooltip(self:GetParent()) end)
+    iconFrame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+        if ShoppingTooltip1 then ShoppingTooltip1:Hide() end
+        if ShoppingTooltip2 then ShoppingTooltip2:Hide() end
+    end)
 
-    -- Roll count text (below item name, real-time counters)
-    local rollCountText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    rollCountText:SetPoint("TOPLEFT", iconBg, "RIGHT", 8, -6)
-    rollCountText:SetJustifyH("LEFT")
-    rollCountText:SetWordWrap(false)
-    rollCountText:Hide()
-    slot.RollCountText = rollCountText
-
-    -- Status text (shown for final result: winner/all passed)
-    local statusText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    statusText:SetPoint("TOPLEFT", iconBg, "TOPRIGHT", 8, -2)
-    statusText:SetJustifyH("LEFT")
-    statusText:SetWordWrap(false)
-    statusText:Hide()
-    slot.StatusText = statusText
-
-    -- Timer bar
-    local timerBar = CreateFrame("StatusBar", nil, slot)
-    timerBar:SetHeight(8)
-    timerBar:SetPoint("BOTTOMLEFT", 6, 4)
-    timerBar:SetPoint("BOTTOMRIGHT", -6, 4)
-    timerBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    timerBar:SetStatusBarColor(0.2, 0.7, 0.2)
-    timerBar:SetMinMaxValues(0, 1)
-
+    -- Timer bar: manual texture (StatusBar pixel-snaps fill width at thin heights)
+    local timerBar = CreateFrame("Frame", nil, slot)
+    timerBar:SetHeight(2)
+    timerBar:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", 55, 5)
+    timerBar:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", -6, 5)
     local timerBg = timerBar:CreateTexture(nil, "BACKGROUND")
     timerBg:SetAllPoints()
-    timerBg:SetColorTexture(0, 0, 0, 0.5)
-
-    local timerText = timerBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    timerText:SetPoint("CENTER")
-    timerText:SetFont(timerText:GetFont(), 9, "OUTLINE")
-    timerBar.Text = timerText
+    timerBg:SetColorTexture(0, 0, 0, 0.4)
+    local timerFill = timerBar:CreateTexture(nil, "ARTWORK")
+    timerFill:SetColorTexture(0.1, 0.5, 0.15)
+    timerFill:SetPoint("TOPLEFT", timerBar, "TOPLEFT", 0, 0)
+    timerFill:SetPoint("BOTTOMLEFT", timerBar, "BOTTOMLEFT", 0, 0)
+    timerFill:SetWidth(0.01)
     slot.TimerBar = timerBar
+    slot.TimerFill = timerFill
 
-    -- Roll buttons: Pass (rightmost) → Greed → Need (leftmost)
-    local btnDefs = {
-        { key = "pass",  type = 0, tex = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = L.pass },
-        { key = "greed", type = 2, tex = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = L.greed },
-        { key = "need",  type = 1, tex = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = L.need },
-    }
+    -- Item name (1-line, offset up to clear timer bar)
+    local itemName = slot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    itemName:SetPoint("LEFT", iconFrame, "RIGHT", 6, 3)
+    itemName:SetJustifyH("LEFT")
+    itemName:SetJustifyV("MIDDLE")
+    itemName:SetWordWrap(false)
+    itemName:SetHeight(16)
+    if itemName.SetMaxLines then itemName:SetMaxLines(1) end
+    slot.ItemName = itemName
 
+    -- Roll buttons: need / greed / pass in a horizontal row, anchored from the right
     slot.Buttons = {}
-    local prevBtn
-    for _, def in ipairs(btnDefs) do
+    for _, def in ipairs(BUTTON_DEFS) do
         local btn = CreateFrame("Button", nil, slot)
-        btn:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-
-        if not prevBtn then
-            btn:SetPoint("TOPRIGHT", slot, "TOPRIGHT", -6, -4)
-        else
-            btn:SetPoint("RIGHT", prevBtn, "LEFT", -2, 0)
-        end
-
-        btn:SetNormalTexture(def.tex)
-        btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-
-        if def.key == "pass" then
-            btn:GetNormalTexture():SetVertexColor(0.8, 0.7, 0.7)
-        end
-
-        local countText = btn:CreateFontString(nil, "OVERLAY")
-        countText:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
-        countText:SetPoint("BOTTOM", 0, -2)
-        btn.CountText = countText
-
-        btn.rollType = def.type
-
-        btn:SetScript("OnEnter", function(self)
-            self:GetHighlightTexture():Show()
-        end)
-        btn:SetScript("OnLeave", function(self)
-            self:GetHighlightTexture():Hide()
-        end)
-
-
+        btn:SetSize(def.size, def.size)
+        btn:SetNormalTexture(def.normal)
+        btn:SetPushedTexture(def.pushed)
+        btn:SetHighlightTexture(def.highlight, "ADD")
         btn:SetScript("OnClick", function()
-            if slot.rollID and not slot.rolled and not slot.timedOut then
-                slot.rolled = true
-
-                -- Test rolls use fake IDs (9000+), don't call RollOnLoot
-                local isTest = slot.rollID >= 9000
-                if not isTest then
-                    local ok = pcall(RollOnLoot, slot.rollID, def.type)
-                    if not ok then
-                        slot.rolled = false
-                        return
-                    end
-                end
-
-                -- Hide buttons, show choice in button area
-                for _, b in pairs(slot.Buttons) do b:Hide() end
-                slot.ResultText:SetText(string.format(L.you_rolled, def.label))
-                slot.ResultText:SetTextColor(0.5, 1, 0.5)
-                slot.ResultText:Show()
-                slot.TimerBar:Hide()
+            if ApplyRoll(slot, def.rollType, def.label, def.color) then
                 MainFrame:UpdateCloseButton()
             end
         end)
-
         slot.Buttons[def.key] = btn
-        prevBtn = btn
     end
+    slot.Buttons.pass:SetPoint("TOPRIGHT", slot, "TOPRIGHT", 0, 0)
+    slot.Buttons.greed:SetPoint("RIGHT", slot, "RIGHT", -6 - CLOSE_BUTTON_SIZE, 3)
+    slot.Buttons.need:SetPoint("RIGHT", slot.Buttons.greed, "LEFT", -2, 0)
 
-    -- Result text (shown in button area after rolling)
+    -- Result text (occupies button strip after rolling)
     local resultText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    resultText:SetPoint("TOPRIGHT", slot, "TOPRIGHT", -6, -6)
     resultText:SetJustifyH("RIGHT")
     resultText:SetWordWrap(false)
     resultText:Hide()
     slot.ResultText = resultText
 
-    -- Anchor item name right edge to left of leftmost button (need)
     local leftBtn = slot.Buttons.need
-    if leftBtn then
-        itemName:SetPoint("RIGHT", leftBtn, "LEFT", -6, 0)
-        rollCountText:SetPoint("RIGHT", leftBtn, "LEFT", -6, 0)
-        statusText:SetPoint("RIGHT", slot, "RIGHT", -6, 0)
-        resultText:SetPoint("LEFT", leftBtn, "LEFT", 0, 0)
-    else
-        itemName:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
-        rollCountText:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
-        statusText:SetPoint("RIGHT", slot, "RIGHT", -10, 0)
-    end
-
-    -- Tooltip on item hover
-    slot:SetScript("OnEnter", function(self)
-        AnchorTooltipAboveSlot(self)
-        local isTest = self.rollID and self.rollID >= 9000
-        if not isTest and self.rollID and GetLootRollItemInfo then
-            local ok = pcall(GameTooltip.SetLootRollItem, GameTooltip, self.rollID)
-            if ok and GameTooltip:NumLines() > 0 then
-                GameTooltip:Show()
-                return
-            end
-        end
-        if self.itemLink then
-            GameTooltip:SetHyperlink(self.itemLink)
-        elseif self.ItemName then
-            GameTooltip:SetText(self.ItemName:GetText() or "", 1, 1, 1)
-        end
-        GameTooltip:Show()
-    end)
-    slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    itemName:SetPoint("RIGHT", leftBtn, "LEFT", -6, 0)
+    resultText:SetPoint("LEFT", leftBtn, "LEFT", 0, 0)
+    resultText:SetPoint("RIGHT", slot, "RIGHT", -6, 3)
 
     return slot
+end
+
+local function AcquireSlot()
+    return table.remove(slotPool) or CreateSlot()
 end
 
 ReleaseSlot = function(slot)
@@ -609,469 +455,160 @@ ReleaseSlot = function(slot)
     slot.rollID = nil
     slot.rolled = nil
     slot.itemLink = nil
+    slot.addedOrder = nil
     slot.timeLeft = nil
     slot.totalTime = nil
-    slot.over = nil
     slot.expireAt = nil
     slot.timedOut = nil
-    slot.chatNeed = nil
-    slot.chatGreed = nil
-    slot.chatPass = nil
-    if slot.ResultText then slot.ResultText:SetText(""); slot.ResultText:Hide() end
-    if slot.RollCountText then slot.RollCountText:SetText(""); slot.RollCountText:Hide() end
-    if slot.Icon then slot.Icon:SetTexture(nil) end
-    if slot.ItemName then slot.ItemName:SetText(""); slot.ItemName:Show() end
-    if slot.StatusText then slot.StatusText:SetText(""); slot.StatusText:Hide() end
-    if slot.TimerBar then slot.TimerBar:SetValue(0); slot.TimerBar:Show() end
-    if slot.TimerBar and slot.TimerBar.Text then slot.TimerBar.Text:SetText("") end
-    if slot.Buttons then
-        for _, btn in pairs(slot.Buttons) do
-            btn:Show()
-            btn:Enable()
-            btn:SetAlpha(1)
-            if btn.CountText then btn.CountText:SetText("") end
-        end
+    slot.ResultText:SetText("")
+    slot.ResultText:Hide()
+    slot.Icon:SetTexture(nil)
+    slot:SetBackdropBorderColor(0.25, 0.25, 0.25, 1)
+    slot.ItemName:SetText("")
+    slot.ItemName:Show()
+    slot.TimerFill:SetWidth(0.01)
+    slot.TimerBar:Show()
+    for _, btn in pairs(slot.Buttons) do
+        btn:Show()
+        btn:Enable()
+        btn:SetAlpha(1)
     end
     table.insert(slotPool, slot)
 end
 
-------------------------------------------------------------
+-- ===========================================================
 -- Layout
-------------------------------------------------------------
-local function GrowsUpward()
-    local point = select(1, MainFrame:GetPoint())
-    if point then
-        point = point:upper()
-        if point:find("BOTTOM") then return true end
-    end
-    return false
-end
-
+-- ===========================================================
 function MainFrame:UpdateLayout()
     local visible = {}
-    for rollID, slot in pairs(activeRolls) do
-        if slot:IsShown() then
-            table.insert(visible, slot)
-        end
+    for _, slot in pairs(activeRolls) do
+        if slot:IsShown() then visible[#visible + 1] = slot end
     end
-
     if #visible == 0 then
         self:Hide()
         return
     end
+    table.sort(visible, function(a, b) return (a.addedOrder or 0) < (b.addedOrder or 0) end)
 
-    table.sort(visible, function(a, b) return a.rollID < b.rollID end)
+    local n = #visible
+    local visibleCount = MAX_VISIBLE_SLOTS
+    local row = SLOT_HEIGHT + SLOT_SPACING
+    local visibleH = visibleCount * row - SLOT_SPACING
+    local contentH = n * row - SLOT_SPACING
+    local needsScroll = n > MAX_VISIBLE_SLOTS
 
-    local upward = GrowsUpward()
-    if upward then
-        local n = #visible
-        for i = 1, math.floor(n / 2) do
-            visible[i], visible[n - i + 1] = visible[n - i + 1], visible[i]
-        end
-    end
+    self:SetWidth(DEFAULT_WIDTH)
 
-    self:SetWidth(FRAME_WIDTH)
+    -- Reserve fixed right margin for the custom scroll indicator
+    local scrollRight = RIGHT_MARGIN
+    scrollFrame:ClearAllPoints()
+    scrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", LEFT_PADDING, -(HEADER_HEIGHT + 4))
+    scrollFrame:SetPoint("TOPRIGHT", self, "TOPRIGHT", -scrollRight, -(HEADER_HEIGHT + 4))
+    scrollFrame:SetHeight(visibleH)
+
+    local scrollW = DEFAULT_WIDTH - LEFT_PADDING - scrollRight
+    scrollContent:SetSize(scrollW, contentH)
+
     for i, slot in ipairs(visible) do
         slot:ClearAllPoints()
-        if i == 1 then
-            slot:SetPoint("TOPLEFT", self, "TOPLEFT", PADDING, -(HEADER_HEIGHT + 4))
-            slot:SetPoint("TOPRIGHT", self, "TOPRIGHT", -PADDING, -(HEADER_HEIGHT + 4))
-        else
-            slot:SetPoint("TOPLEFT", visible[i - 1], "BOTTOMLEFT", 0, -3)
-            slot:SetPoint("TOPRIGHT", visible[i - 1], "BOTTOMRIGHT", 0, -3)
-        end
+        local yOff = -((i - 1) * row)
+        slot:SetPoint("TOPLEFT", scrollContent, "TOPLEFT", 0, yOff)
+        slot:SetPoint("TOPRIGHT", scrollContent, "TOPRIGHT", 0, yOff)
     end
 
-    local totalH = HEADER_HEIGHT + 4 + (#visible * (SLOT_HEIGHT + 3)) + FOOTER_HEIGHT + PADDING
-    self:SetHeight(totalH)
+    local maxScroll = math.max(0, contentH - visibleH)
+    UpdateIndicatorThumb()
+
+    self:SetHeight(HEADER_HEIGHT + 4 + visibleH + FOOTER_HEIGHT + PADDING)
 
     needAllBtn:ClearAllPoints()
-    needAllBtn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 10, 8)
+    needAllBtn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", LEFT_PADDING, 16)
     greedAllBtn:ClearAllPoints()
-    greedAllBtn:SetPoint("CENTER", self, "BOTTOM", 0, 19)
+    greedAllBtn:SetPoint("LEFT", needAllBtn, "RIGHT", 4, 0)
     passAllBtn:ClearAllPoints()
-    passAllBtn:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -10, 8)
+    passAllBtn:SetPoint("LEFT", greedAllBtn, "RIGHT", 4, 0)
+
+    -- Preserve user's current scroll position; only clamp if it exceeds new max
+    -- (avoids hijacking the view and reducing click misses on items the user is looking at)
+    local current = scrollFrame:GetVerticalScroll()
+    if current > maxScroll then current = maxScroll end
+    scrollFrame:SetVerticalScroll(current)
 
     self:Show()
 end
 
-------------------------------------------------------------
--- Add / Remove rolls
-------------------------------------------------------------
+-- ===========================================================
+-- Per-slot update (timeout detection + auto-close)
+-- ===========================================================
+local function SlotOnUpdate(self, elapsed)
+    self.timeLeft = self.timeLeft - elapsed
+    if self.timeLeft <= 0 then
+        self.timeLeft = 0
+        MarkTimedOut(self)
+        MainFrame:UpdateCloseButton()
+        return
+    end
+    local w = self.TimerBar:GetWidth()
+    if w > 0 then
+        self.TimerFill:SetWidth(math.max(0.01, w * (self.timeLeft / self.totalTime)))
+    end
+end
+
+-- ===========================================================
+-- Add roll
+-- ===========================================================
+local function SetButtonEnabled(btn, enabled)
+    if not btn then return end
+    if enabled then
+        btn:Enable(); btn:SetAlpha(1)
+    else
+        btn:Disable(); btn:SetAlpha(0.3)
+    end
+end
+
 local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGreed, itemLink)
     if activeRolls[rollID] then return end
 
     local slot = AcquireSlot()
     slot.rollID = rollID
     slot.rolled = false
-    slot.over = false
     slot.itemLink = itemLink
+    slot.addedOrder = nextAddedOrder
+    nextAddedOrder = nextAddedOrder + 1
     slot.timeLeft = timeLeft or 60
-    slot.totalTime = slot.timeLeft
+    slot.totalTime = math.max(slot.timeLeft, 60)
 
-    if texture then
-        slot.Icon:SetTexture(texture)
-    end
-
+    if texture then slot.Icon:SetTexture(texture) end
     slot.ItemName:SetText(name or "???")
     if quality then
         local r, g, b = GetItemQualityColor(quality)
         slot.ItemName:SetTextColor(r, g, b)
-        slot:SetBackdropBorderColor(r, g, b, 1)
-        slot.IconBg:SetColorTexture(r, g, b, 0.6)
     else
         slot.ItemName:SetTextColor(1, 1, 1)
-        slot:SetBackdropBorderColor(0.6, 0.6, 0.6, 0.6)
-        slot.IconBg:SetColorTexture(0, 0, 0, 0.8)
     end
 
-    slot.TimerBar:SetMinMaxValues(0, slot.totalTime)
-    slot.TimerBar:SetValue(slot.timeLeft)
-    slot.TimerBar.Text:SetText("")
-
-    -- Button enable/disable
-    if slot.Buttons.need then
-        if canNeed then
-            slot.Buttons.need:Enable()
-            slot.Buttons.need:SetAlpha(1)
-        else
-            slot.Buttons.need:Disable()
-            slot.Buttons.need:SetAlpha(0.3)
-        end
-    end
-    if slot.Buttons.greed then
-        if canGreed then
-            slot.Buttons.greed:Enable()
-            slot.Buttons.greed:SetAlpha(1)
-        else
-            slot.Buttons.greed:Disable()
-            slot.Buttons.greed:SetAlpha(0.3)
-        end
-    end
-    if slot.Buttons.pass then
-        slot.Buttons.pass:Enable()
-        slot.Buttons.pass:SetAlpha(1)
+    local w = slot.TimerBar:GetWidth()
+    if w > 0 then
+        slot.TimerFill:SetWidth(math.max(0.01, w * (slot.timeLeft / slot.totalTime)))
     end
 
-    -- Timer OnUpdate
-    slot:SetScript("OnUpdate", function(self, elapsed)
-        -- Expiration countdown (30s after result received)
-        if self.expireAt then
-            local remaining = self.expireAt - GetTime()
-            if remaining <= 0 then
-                self:SetScript("OnUpdate", nil)
-                activeRolls[self.rollID] = nil
-                ReleaseSlot(self)
-                MainFrame:UpdateLayout()
-                return
-            end
-            return
-        end
+    SetButtonEnabled(slot.Buttons.need, canNeed)
+    SetButtonEnabled(slot.Buttons.greed, canGreed)
+    SetButtonEnabled(slot.Buttons.pass, true)
 
-        self.timeLeft = self.timeLeft - elapsed
-        if self.timeLeft <= 0 then
-            self.timeLeft = 0
-            if not self.rolled and not self.timedOut then
-                self.timedOut = true
-                for _, b in pairs(self.Buttons) do b:Hide() end
-                self.ResultText:SetText(L.pass)
-                self.ResultText:SetTextColor(0.7, 0.7, 0.7)
-                self.ResultText:Show()
-                self.TimerBar:Hide()
-                MainFrame:UpdateCloseButton()
-            end
-        end
-        self.TimerBar:SetValue(self.timeLeft)
-        self.TimerBar.Text:SetText("")
-
-        local pct = self.timeLeft / self.totalTime
-        if pct > 0.5 then
-            self.TimerBar:SetStatusBarColor(0.2, 0.7, 0.2)
-        elseif pct > 0.25 then
-            self.TimerBar:SetStatusBarColor(0.9, 0.7, 0.1)
-        else
-            self.TimerBar:SetStatusBarColor(0.9, 0.2, 0.1)
-        end
-    end)
-
+    slot:SetScript("OnUpdate", SlotOnUpdate)
     slot:Show()
     activeRolls[rollID] = slot
     MainFrame:UpdateLayout()
     MainFrame:UpdateCloseButton()
 end
 
-local function RemoveRoll(rollID)
-    local slot = activeRolls[rollID]
-    if slot then
-        slot:SetScript("OnUpdate", nil)
-        activeRolls[rollID] = nil
-        ReleaseSlot(slot)
-        MainFrame:UpdateLayout()
-    end
-end
-
-------------------------------------------------------------
--- CHAT_MSG_LOOT parsing
-------------------------------------------------------------
-local function GlobalStringToPattern(fmt)
-    if not fmt then return nil end
-    local p = fmt
-    p = p:gsub("%%s", "\001")
-    p = p:gsub("%%d", "\002")
-    p = p:gsub("|1(.-)%;(.-)%;", "\003")
-    p = p:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
-    p = p:gsub("\001", "(.+)")
-    p = p:gsub("\002", "(%%d+)")
-    p = p:gsub("\003", ".+")
-    return "^" .. p .. "$"
-end
-
--- "selected" patterns: fired when a player makes their choice (real-time)
-local PAT_SEL_NEED      = GlobalStringToPattern(LOOT_ROLL_NEED)
-local PAT_SEL_GREED     = GlobalStringToPattern(LOOT_ROLL_GREED)
-local PAT_SEL_PASS      = GlobalStringToPattern(LOOT_ROLL_PASSED)
-local PAT_SEL_NEED_SELF  = GlobalStringToPattern(LOOT_ROLL_NEED_SELF)
-local PAT_SEL_GREED_SELF = GlobalStringToPattern(LOOT_ROLL_GREED_SELF)
-local PAT_SEL_PASS_SELF  = GlobalStringToPattern(LOOT_ROLL_PASSED_SELF)
-local PAT_SEL_PASS_AUTO  = GlobalStringToPattern(LOOT_ROLL_PASSED_AUTO)
-local PAT_SEL_PASS_SELF_AUTO = GlobalStringToPattern(LOOT_ROLL_PASSED_SELF_AUTO)
-
--- "rolled" patterns: fired with actual dice numbers (after all choices made)
-local PAT_ROLLED_NEED  = GlobalStringToPattern(LOOT_ROLL_ROLLED_NEED)
-local PAT_ROLLED_GREED = GlobalStringToPattern(LOOT_ROLL_ROLLED_GREED)
-local PAT_ROLLED_DE    = GlobalStringToPattern(LOOT_ROLL_ROLLED_DE)
-
--- final result patterns
-local PAT_ROLL_WON       = GlobalStringToPattern(LOOT_ROLL_WON)
-local PAT_ROLL_YOU_WON   = GlobalStringToPattern(LOOT_ROLL_YOU_WON)
-local PAT_ROLL_ALL_PASS  = GlobalStringToPattern(LOOT_ROLL_ALL_PASSED)
-
-local function FindSlotByItemID(itemID)
-    local bestRollID, bestSlot = nil, nil
-    local bestRolled = false
-    for rollID, slot in pairs(activeRolls) do
-        if not slot.over and slot.itemLink then
-            if slot.itemLink:match("item:(%d+)") == itemID then
-                local slotRolled = slot.rolled or slot.timedOut
-                -- Prefer slots where user already rolled (chat results belong to them)
-                if not bestRollID
-                    or (slotRolled and not bestRolled)
-                    or (slotRolled == bestRolled and rollID < bestRollID) then
-                    bestRollID = rollID
-                    bestSlot = slot
-                    bestRolled = slotRolled
-                end
-            end
-        end
-    end
-    return bestRollID, bestSlot
-end
-
-local function TryMatch(msg, pat)
-    if not pat then return nil end
-    return msg:match(pat)
-end
-
-InitChatResults = function(slot)
-    if not slot.chatNeed then
-        slot.chatNeed = {}
-        slot.chatGreed = {}
-        slot.chatPass = {}
-    end
-end
-
-local ICON_NEED  = "|TInterface\\Buttons\\UI-GroupLoot-Dice-Up:14|t"
-local ICON_GREED = "|TInterface\\Buttons\\UI-GroupLoot-Coin-Up:14|t"
-local ICON_PASS  = "|TInterface\\Buttons\\UI-GroupLoot-Pass-Up:14|t"
-
-UpdateSlotResultDisplay = function(slot)
-    if not slot.chatNeed then return end
-    local parts = {}
-    if #slot.chatNeed > 0 then
-        table.insert(parts, string.format("|cFF44FF22%s%d|r", ICON_NEED, #slot.chatNeed))
-    end
-    if #slot.chatGreed > 0 then
-        table.insert(parts, string.format("|cFF4488FF%s%d|r", ICON_GREED, #slot.chatGreed))
-    end
-    if #slot.chatPass > 0 then
-        table.insert(parts, string.format("|cFF999999%s%d|r", ICON_PASS, #slot.chatPass))
-    end
-    if #parts > 0 then
-        slot.RollCountText:SetText(table.concat(parts, " "))
-        slot.RollCountText:Show()
-    end
-end
-
-FindEntryByName = function(list, name)
-    for _, entry in ipairs(list) do
-        if entry.name == name then return entry end
-    end
-    return nil
-end
-
-FinishSlotWithWinner = function(slot, winnerName)
-    slot.over = true
-    for _, b in pairs(slot.Buttons) do b:Hide() end
-    slot.ResultText:Hide()
-    local typeIcon = ""
-    if slot.chatNeed and FindEntryByName(slot.chatNeed, winnerName) then
-        typeIcon = ICON_NEED
-    elseif slot.chatGreed and FindEntryByName(slot.chatGreed, winnerName) then
-        typeIcon = ICON_GREED
-    end
-    slot.RollCountText:SetText("|cFFFFD700" .. typeIcon .. winnerName .. "|r")
-    slot.RollCountText:Show()
-    local expiry = GetTime() + EXPIRE_ROLLED
-    slot.expireAt = expiry
-    -- Sync all finished slots to the same expiry so they close together
-    for _, s in pairs(activeRolls) do
-        if s.over and s.expireAt and s.expireAt < expiry then
-            s.expireAt = expiry
-        end
-    end
-end
-
-FinishSlotAllPassed = function(slot)
-    slot.over = true
-    for _, b in pairs(slot.Buttons) do b:Hide() end
-    slot.ResultText:Hide()
-    slot.RollCountText:SetText("|cFF999999" .. L.all_passed .. "|r")
-    slot.RollCountText:Show()
-    local expiry = GetTime() + EXPIRE_ROLLED
-    slot.expireAt = expiry
-    for _, s in pairs(activeRolls) do
-        if s.over and s.expireAt and s.expireAt < expiry then
-            s.expireAt = expiry
-        end
-    end
-end
-
-local function OnChatMsgLoot(msg)
-    local itemID = msg:match("|Hitem:(%d+)")
-    if not itemID then return end
-
-    local _, slot = FindSlotByItemID(itemID)
-    if not slot then return end
-
-    -- Won
-    if TryMatch(msg, PAT_ROLL_YOU_WON) then
-        FinishSlotWithWinner(slot, UnitName("player"))
-        return
-    end
-    local wonName = TryMatch(msg, PAT_ROLL_WON)
-    if wonName then
-        FinishSlotWithWinner(slot, wonName)
-        return
-    end
-
-    -- All passed
-    if TryMatch(msg, PAT_ROLL_ALL_PASS) then
-        FinishSlotAllPassed(slot)
-        return
-    end
-
-    InitChatResults(slot)
-    local player = UnitName("player")
-
-    -- "rolled" messages: dice number, itemLink, playerName
-    local r1, _, rn1 = TryMatch(msg, PAT_ROLLED_NEED)
-    if r1 and rn1 then
-        local entry = FindEntryByName(slot.chatNeed, rn1) or FindEntryByName(slot.chatNeed, player)
-        if entry then
-            entry.roll = tonumber(r1)
-        else
-            table.insert(slot.chatNeed, { name = rn1, roll = tonumber(r1) })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    local r2, _, rn2 = TryMatch(msg, PAT_ROLLED_GREED)
-    if r2 and rn2 then
-        local entry = FindEntryByName(slot.chatGreed, rn2) or FindEntryByName(slot.chatGreed, player)
-        if entry then
-            entry.roll = tonumber(r2)
-        else
-            table.insert(slot.chatGreed, { name = rn2, roll = tonumber(r2) })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    if PAT_ROLLED_DE then
-        local r3, _, rn3 = TryMatch(msg, PAT_ROLLED_DE)
-        if r3 and rn3 then
-            local entry = FindEntryByName(slot.chatGreed, rn3)
-            if entry then
-                entry.roll = tonumber(r3)
-            else
-                table.insert(slot.chatGreed, { name = rn3, roll = tonumber(r3) })
-            end
-            UpdateSlotResultDisplay(slot)
-            return
-        end
-    end
-
-    -- "selected" messages: player chose need/greed/pass (real-time, no dice yet)
-    local sn1 = TryMatch(msg, PAT_SEL_NEED)
-    if sn1 then
-        if not FindEntryByName(slot.chatNeed, sn1) then
-            table.insert(slot.chatNeed, { name = sn1 })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    if TryMatch(msg, PAT_SEL_NEED_SELF) then
-        if not FindEntryByName(slot.chatNeed, player) then
-            table.insert(slot.chatNeed, { name = player })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-
-    local sn2 = TryMatch(msg, PAT_SEL_GREED)
-    if sn2 then
-        if not FindEntryByName(slot.chatGreed, sn2) then
-            table.insert(slot.chatGreed, { name = sn2 })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    if TryMatch(msg, PAT_SEL_GREED_SELF) then
-        if not FindEntryByName(slot.chatGreed, player) then
-            table.insert(slot.chatGreed, { name = player })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-
-    local sn3 = TryMatch(msg, PAT_SEL_PASS)
-    if sn3 then
-        if not FindEntryByName(slot.chatPass, sn3) then
-            table.insert(slot.chatPass, { name = sn3 })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    if TryMatch(msg, PAT_SEL_PASS_SELF) or TryMatch(msg, PAT_SEL_PASS_SELF_AUTO) then
-        if not FindEntryByName(slot.chatPass, player) then
-            table.insert(slot.chatPass, { name = player })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-    local sn4 = TryMatch(msg, PAT_SEL_PASS_AUTO)
-    if sn4 then
-        if not FindEntryByName(slot.chatPass, sn4) then
-            table.insert(slot.chatPass, { name = sn4 })
-        end
-        UpdateSlotResultDisplay(slot)
-        return
-    end
-end
-
-------------------------------------------------------------
--- Hide Blizzard roll frames
-------------------------------------------------------------
+-- ===========================================================
+-- Blizzard loot frame suppression
+-- ===========================================================
 local function HideBlizzardRollFrames()
+    UIParent:UnregisterEvent("START_LOOT_ROLL")
+    UIParent:UnregisterEvent("CANCEL_LOOT_ROLL")
     local max = NUM_GROUP_LOOT_FRAMES or 4
     for i = 1, max do
         local f = _G["GroupLootFrame" .. i]
@@ -1082,46 +619,49 @@ local function HideBlizzardRollFrames()
     end
 end
 
-------------------------------------------------------------
+-- ===========================================================
 -- Resolve roll data (handles item cache delay)
-------------------------------------------------------------
+-- ===========================================================
+local function NormalizeTime(t)
+    if type(t) == "number" then return t / 1000 end
+    return 60
+end
+
 local function ResolveRoll(rollID)
-    local texture, name, count, quality, bop, canNeed, canGreed = GetLootRollItemInfo(rollID)
+    local texture, name, _, quality, _, canNeed, canGreed = GetLootRollItemInfo(rollID)
     local timeLeft = GetLootRollTimeLeft(rollID)
     local itemLink = GetLootRollItemLink and GetLootRollItemLink(rollID)
 
     if texture and texture ~= 0 and name then
-        if timeLeft and type(timeLeft) == "number" then
-            timeLeft = timeLeft / 1000
-        else
-            timeLeft = 60
-        end
-        AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGreed, itemLink)
+        AddRoll(rollID, texture, name, quality, NormalizeTime(timeLeft), canNeed, canGreed, itemLink)
         pendingRolls[rollID] = nil
         return
     end
-
     if itemLink then
         local iName, _, iQuality, _, _, _, _, _, _, iTexture = GetItemInfo(itemLink)
         if iTexture then
-            if timeLeft and type(timeLeft) == "number" then
-                timeLeft = timeLeft / 1000
-            else
-                timeLeft = 60
-            end
-            AddRoll(rollID, iTexture, iName or name, iQuality or quality, timeLeft, canNeed, canGreed, itemLink)
+            AddRoll(rollID, iTexture, iName or name, iQuality or quality, NormalizeTime(timeLeft), canNeed, canGreed, itemLink)
             pendingRolls[rollID] = nil
             return
         end
     end
-
     pendingRolls[rollID] = { name = name, quality = quality, canNeed = canNeed, canGreed = canGreed, itemLink = itemLink }
 end
 
-------------------------------------------------------------
--- Test (simulates C_LootHistory behavior with fake data)
-------------------------------------------------------------
-local testItemIDs = { 19019, 18348, 18816, 17063, 18203, 17182, 28579, 23572 }
+-- ===========================================================
+-- Test rolls (/srsr preview)
+-- ===========================================================
+local testItemIDs = {
+    2589,    -- Linen Cloth (common)
+    21877,   -- Netherweave Cloth (common)
+    2033,    -- Silver-thread Gloves (uncommon)
+    15196,   -- Forest Leather Bracers (uncommon)
+    28186,   -- Pauldrons of the Unrelenting (rare)
+    23572,   -- Primal Nether (rare)
+    18816,   -- Felstriker (epic)
+    18348,   -- Benediction (epic)
+    19019,   -- Thunderfury (legendary)
+}
 local testNextIndex = 1
 
 local function TestRolls(count, retryNum)
@@ -1129,8 +669,7 @@ local function TestRolls(count, retryNum)
     retryNum = retryNum or 0
 
     if testNextIndex > #testItemIDs then
-        for rollID, slot in pairs(activeRolls) do
-            slot:SetScript("OnUpdate", nil)
+        for _, slot in pairs(activeRolls) do
             ReleaseSlot(slot)
         end
         wipe(activeRolls)
@@ -1139,8 +678,6 @@ local function TestRolls(count, retryNum)
         print("|cFFFFD700SimpleRoll:|r Reset. Run again to preview.")
         return
     end
-
-    UpdateHeader()
 
     local target = math.min(count, #testItemIDs - testNextIndex + 1)
     for i = testNextIndex, testNextIndex + target - 1 do
@@ -1152,8 +689,7 @@ local function TestRolls(count, retryNum)
         local name, link, quality, _, _, _, _, _, _, icon = GetItemInfo(testItemIDs[i])
         if name and icon then
             added = added + 1
-            local sid = 9000 + i
-            AddRoll(sid, icon, name, quality, 30, true, true, link)
+            AddRoll(TEST_ID_BASE + i, icon, name, quality, 30, true, true, link)
         end
     end
 
@@ -1169,17 +705,16 @@ local function TestRolls(count, retryNum)
     print(string.format(L.test_spawned, added))
 end
 
-------------------------------------------------------------
+-- ===========================================================
 -- Events
-------------------------------------------------------------
+-- ===========================================================
 EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("START_LOOT_ROLL")
 EventFrame:RegisterEvent("CANCEL_LOOT_ROLL")
 EventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-EventFrame:RegisterEvent("CHAT_MSG_LOOT")
 
-EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
+EventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         SimpleRollDB = SimpleRollDB or {}
         local pos = SimpleRollDB.pos
@@ -1187,65 +722,59 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
             MainFrame:ClearAllPoints()
             MainFrame:SetPoint(pos.point or "TOPLEFT", UIParent, pos.rel or "TOPLEFT", pos.x or 100, pos.y or -200)
         end
-        if SimpleRollDB.width then
-            FRAME_WIDTH = SimpleRollDB.width
-        end
-        print(L.loaded)
 
     elseif event == "PLAYER_LOGIN" then
-        UpdateHeader()
         C_Timer.After(0.5, HideBlizzardRollFrames)
+        C_Timer.After(1.0, function()
+            for i = 1, 300 do
+                local ok, time = pcall(GetLootRollTimeLeft, i)
+                if ok and time and time > 0 and time < 300000 then
+                    ResolveRoll(i)
+                end
+            end
+        end)
 
     elseif event == "START_LOOT_ROLL" then
-        HideBlizzardRollFrames()
         local rollID = arg1
         C_Timer.After(0.05, function() ResolveRoll(rollID) end)
 
     elseif event == "GET_ITEM_INFO_RECEIVED" then
-        if next(pendingRolls) then
-            for rollID in pairs(pendingRolls) do
-                ResolveRoll(rollID)
+        local itemID = arg1
+        if itemID then
+            for rollID, info in pairs(pendingRolls) do
+                local link = info.itemLink
+                if link and tonumber(link:match("item:(%d+)")) == itemID then
+                    ResolveRoll(rollID)
+                end
             end
         end
 
     elseif event == "CANCEL_LOOT_ROLL" then
         pendingRolls[arg1] = nil
         local slot = activeRolls[arg1]
-        if slot and not slot.expireAt then
+        if slot then
             if not slot.rolled and not slot.timedOut then
-                slot.timedOut = true
-                for _, b in pairs(slot.Buttons) do b:Hide() end
-                slot.ResultText:SetText(L.pass)
-                slot.ResultText:SetTextColor(0.7, 0.7, 0.7)
-                slot.ResultText:Show()
-                slot.TimerBar:Hide()
+                MarkTimedOut(slot)
             end
-            local remaining = slot.rolled and math.max(slot.timeLeft or 0, 0) or 0
-            slot.expireAt = GetTime() + remaining + EXPIRE_ROLLED
             MainFrame:UpdateCloseButton()
         end
-
-    elseif event == "CHAT_MSG_LOOT" then
-        OnChatMsgLoot(arg1)
     end
 end)
 
-------------------------------------------------------------
+-- ===========================================================
 -- Slash command
-------------------------------------------------------------
+-- ===========================================================
 SLASH_SIMPLEROLL1 = "/srsr"
 SLASH_SIMPLEROLL2 = "/simpleroll"
 SlashCmdList["SIMPLEROLL"] = function(msg)
     local cmd = (msg or ""):lower():match("^(%S*)")
-    if cmd == "" or cmd == nil then
+    if cmd == "" then
         TestRolls(math.random(3, 5))
     elseif cmd == "reset" then
-        SimpleRollDB = {}
-        FRAME_WIDTH = 298
+        wipe(SimpleRollDB)
         MainFrame:ClearAllPoints()
         MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
-        MainFrame:SetWidth(FRAME_WIDTH)
-        print("|cFFFFD700SimpleRoll:|r Position & size reset.")
+        print("|cFFFFD700SimpleRoll:|r Position reset.")
     else
         print("|cFFFFD700SimpleRoll:|r")
         print("  /srsr - " .. L.cmd_preview)

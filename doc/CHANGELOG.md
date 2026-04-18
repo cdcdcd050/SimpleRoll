@@ -1,0 +1,61 @@
+# SimpleRoll 변경 이력
+
+## v0.9.1 (2026-04-18)
+
+### UI 리뉴얼
+- **다크 미니멀 스타일**: 메인 프레임, 슬롯 모두 어두운 배경 + 얇은 툴팁 테두리로 통일. 금색 테두리 제거
+- **아이콘 프레임 기반으로 변경**: 단순 색상 배경 → Frame + Backdrop 테두리 방식. 품질 색상이 아이콘 테두리에 적용
+- **슬롯 테두리**: 품질 색상을 절반 밝기로 은은하게 표시, 아이콘 테두리에서 품질 강조
+- **툴팁**: 아이콘 호버 시에만 표시 (슬롯 배경 영역 제외)
+
+### 개선
+- **블리자드 롤 프레임 완전 차단**: `UIParent:UnregisterEvent("START_LOOT_ROLL")` 추가하여 깜빡임 없이 기본 프레임 억제 (기존 HookScript 폴백 유지)
+- **Shift 비교 툴팁**: 슬롯 마우스오버 시 Shift 누르면 장착 중인 장비와 비교 툴팁 표시 (`GameTooltip_ShowCompareItem`)
+- **타이머 안전장치**: `GetLootRollTimeLeft`가 0 반환 시 서버가 롤 종료를 알린 것으로 감지, CANCEL 이벤트 미도착 시에도 30초 대기 후 자동 만료 (`serverEndDetected`)
+
+---
+
+## v0.9.0 (2026-04-18) — 최초 안정화 버전
+
+### 버그 수정
+- **모두 입찰/차비/포기 버튼이 하나만 처리되는 문제**
+  - 원인: `RollOnLoot` 호출 시 `CANCEL_LOOT_ROLL` 이벤트가 동기적으로 발생하면, CANCEL 핸들러가 아직 `rolled=false`인 슬롯에 `timedOut=true`를 설정하여 나머지 슬롯이 먹통됨
+  - 수정: `rolled=true`를 `RollOnLoot` 호출 **전에** 설정하여 CANCEL 핸들러가 이미 롤된 슬롯으로 인식하도록 변경
+  - 추가: 루프 내 매 반복마다 `not slot.rolled and not slot.timedOut` 재검증
+
+- **pcall 실패 시 버튼 먹통**
+  - 원인: `pcall(RollOnLoot)` 에러를 삼켜서 서버에 롤이 안 갔는데 UI는 `rolled=true`로 설정됨. 이후 버튼 클릭 불가
+  - 수정: pcall 실패 시 `rolled=false`로 되돌려 버튼이 재클릭 가능하도록 변경
+  - 적용 범위: 개별 버튼 + 모두 입찰/차비/포기 전부
+
+- **같은 아이템 복수 드롭 시 채팅 결과가 엉뚱한 슬롯에 매칭**
+  - 원인: `FindSlotByItemID`가 단순히 가장 작은 rollID를 반환하여, 이미 롤한 슬롯이 아닌 아직 안 한 슬롯에 결과가 매칭됨
+  - 수정: `rolled` 또는 `timedOut` 상태인 슬롯을 우선 매칭 (채팅 결과는 이미 롤한 슬롯에 대한 것이므로)
+
+### 잠재적 위험 (모니터링 필요)
+- pcall 실패 시 rolled를 되돌리는 방식이 실전에서 정상 동작하는지 확인 필요
+  - `RollOnLoot`이 성공했지만 내부 에러로 pcall이 false를 반환하는 경우가 있다면, 서버에는 롤이 갔는데 UI에서 다시 클릭 가능한 상태가 될 수 있음 (이중 롤 시도)
+  - TBC에서 `RollOnLoot`은 이미 처리된 rollID에 대해 에러를 내는지, 무시하는지 확인 필요
+- `CANCEL_LOOT_ROLL`이 동기적으로 발생하는지 비동기적으로 발생하는지는 클라이언트 버전에 따라 다를 수 있음
+
+---
+
+## 이전 버전 (삭제됨)
+
+아래 버전들은 원격 릴리즈가 삭제되었으며, v0.9.0이 이를 대체한다.
+
+### v1.2.0
+- UI 개선: 버튼 크기 증가, 눌림 효과, FrameStrata DIALOG, 배경 어둡게
+- 테스트 모드 시뮬레이션 코드 제거
+- 타이틀에 버전 표시
+
+### v1.1.1
+- "All" 버튼이 pairs 순회 중 하나만 처리되는 버그 → toRoll 배열 수집 후 ipairs 처리로 수정
+
+### v1.1.0
+- CHAT_MSG_LOOT 파싱 추가 (TBC 전용 결과 추적)
+- GlobalStringToPattern으로 로케일별 패턴 자동 생성
+- 슬롯 풀링, 리사이즈 그립, 결과 카운터 UI
+
+### v1.0.0
+- 최초 릴리즈: 블리자드 GroupLootFrame 교체, Need/Greed/Pass UI
