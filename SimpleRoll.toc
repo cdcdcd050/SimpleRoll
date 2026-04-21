@@ -5,7 +5,8 @@
 ## Notes-zhCN: 简易团队拾取掷骰界面替换
 ## Notes-deDE: Einfacher Gruppen-Loot-Würfel-UI-Ersatz
 ## Author: CH00
-## Version: 1.3.0
+## Version: 1.4.0
 ## SavedVariables: SimpleRollDB
 
 SimpleRoll.lua
+SimpleRoll_ChatTracker.lua

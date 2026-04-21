@@ -26,12 +26,18 @@ local L = {
     OPT_CLOSE_DELAY_DESC = "Close the item popup immediately, or uncheck to pick a delay in seconds.",
     OPT_MASS_BUTTONS      = "Show 'All' buttons",
     OPT_MASS_BUTTONS_DESC = "Show All Need / All Greed / All Pass buttons at the bottom of the roll window.",
+    OPT_CHAT_TRACK        = "Track rolls from chat",
+    OPT_CHAT_TRACK_DESC   = "Parse party/raid chat to track who bid Need/Greed/Pass on each item and show counts.",
     MASS_NEED        = "All Need",
     MASS_GREED       = "All Greed",
     MASS_PASS        = "All Pass",
     MASS_NEED_CONFIRM  = "Roll Need on %d remaining item(s)?",
     MASS_GREED_CONFIRM = "Roll Greed on %d remaining item(s)?",
     MASS_PASS_CONFIRM  = "Pass on %d remaining item(s)?",
+    FALLBACK_BTN       = "Switch to Default UI",
+    FALLBACK_TOOLTIP   = "Switch to Blizzard's default loot UI for this session. Reload (/reload) to restore SimpleRoll.",
+    FALLBACK_HEADER    = "Emergency fallback",
+    FALLBACK_DESC      = "If the SimpleRoll popup misbehaves, click the '|cFFFFD700Switch to Default UI|r' button at the top-left of the roll window to hand the current rolls back to Blizzard's default loot UI. The next drop re-engages SimpleRoll automatically.",
 }
 
 if locale == "koKR" then
@@ -56,12 +62,18 @@ if locale == "koKR" then
     L.OPT_CLOSE_DELAY_DESC = "아이템 팝업창을 즉시 닫거나 지연시간을 설정합니다."
     L.OPT_MASS_BUTTONS      = "일괄 버튼 표시"
     L.OPT_MASS_BUTTONS_DESC = "주사위 창 하단에 모두 입찰/차비/포기 버튼을 표시합니다."
+    L.OPT_CHAT_TRACK        = "채팅 입찰 추적"
+    L.OPT_CHAT_TRACK_DESC   = "파티/공격대 채팅을 분석해 누가 입찰/차비/포기를 했는지 인원수를 표시합니다."
     L.MASS_NEED        = "모두 입찰"
     L.MASS_GREED       = "모두 차비"
     L.MASS_PASS        = "모두 포기"
     L.MASS_NEED_CONFIRM  = "남은 아이템 %d개에 모두 입찰을 누르시겠습니까?"
     L.MASS_GREED_CONFIRM = "남은 아이템 %d개에 모두 차비를 누르시겠습니까?"
     L.MASS_PASS_CONFIRM  = "남은 아이템 %d개를 모두 포기하시겠습니까?"
+    L.FALLBACK_BTN       = "기본 UI로 전환"
+    L.FALLBACK_TOOLTIP   = "이번 세션 동안 블리자드 기본 전리품 UI로 전환합니다. /reload 로 SimpleRoll 복구."
+    L.FALLBACK_HEADER    = "비상 전환"
+    L.FALLBACK_DESC      = "SimpleRoll 주사위창에 문제가 생기면, 창 좌측 상단의 '|cFFFFD700기본 UI로 전환|r' 버튼을 눌러 현재 롤을 블리자드 기본 전리품 UI로 넘깁니다. 다음 드랍부터는 SimpleRoll이 자동으로 다시 처리합니다."
 end
 
 if locale == "zhCN" then
@@ -86,6 +98,8 @@ if locale == "zhCN" then
     L.OPT_CLOSE_DELAY_DESC = "立即关闭物品弹窗，或取消勾选以选择等待秒数。"
     L.OPT_MASS_BUTTONS      = "显示全部按钮"
     L.OPT_MASS_BUTTONS_DESC = "在掷骰窗口底部显示全部需求/贪婪/放弃按钮。"
+    L.OPT_CHAT_TRACK        = "从聊天追踪掷骰"
+    L.OPT_CHAT_TRACK_DESC   = "解析队伍/团队聊天，追踪谁对物品掷了需求/贪婪/放弃并显示人数。"
     L.MASS_NEED        = "全部需求"
     L.MASS_GREED       = "全部贪婪"
     L.MASS_PASS        = "全部放弃"
@@ -116,6 +130,8 @@ if locale == "deDE" then
     L.OPT_CLOSE_DELAY_DESC = "Gegenstandsdialog sofort schließen, oder deaktivieren für Verzögerung in Sekunden."
     L.OPT_MASS_BUTTONS      = "Alle-Buttons anzeigen"
     L.OPT_MASS_BUTTONS_DESC = "Alle-Bedarf/Gier/Passen-Buttons unten im Würfelfenster anzeigen."
+    L.OPT_CHAT_TRACK        = "Würfe aus Chat verfolgen"
+    L.OPT_CHAT_TRACK_DESC   = "Gruppen-/Schlachtzugschat analysieren, um zu zählen, wer Bedarf/Gier/Passen für jeden Gegenstand gewürfelt hat."
     L.MASS_NEED        = "Alle Bedarf"
     L.MASS_GREED       = "Alle Gier"
     L.MASS_PASS        = "Alle Passen"
@@ -127,7 +143,7 @@ end
 -- Constants
 local DEFAULT_WIDTH      = 277
 local SLOT_HEIGHT        = 40
-local HEADER_HEIGHT      = 8
+local HEADER_HEIGHT      = 16
 local FOOTER_HEIGHT      = 12
 local PADDING            = 14
 local LEFT_PADDING       = 4
@@ -161,7 +177,10 @@ local pendingRolls = {}
 local slotPool = {}
 local nextAddedOrder = 1
 local massAutoConfirm = {}  -- rollID → true; consumed by CONFIRM_LOOT_ROLL handler to bypass per-item BoP popup during mass ops
+local handedOffRolls = {}   -- rollID → true; one-shot emergency fallback: user pressed "Default UI" on these rolls, so let Blizzard's GroupLootFrame handle them
 local ReleaseSlot  -- forward
+local UpdateSlotTrackers  -- forward
+local RefreshSlotFromChat -- forward
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
 
@@ -267,6 +286,27 @@ local countdownText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal
 countdownText:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -6, -1)
 countdownText:SetTextColor(0.6, 0.6, 0.6)
 countdownText:Hide()
+
+-- Emergency fallback button (top-left): one-shot switch to Blizzard's default
+-- loot UI for this session. Can be removed once the addon is stable.
+local fallbackBtn = CreateFrame("Button", nil, MainFrame)
+fallbackBtn:SetSize(90, 14)
+fallbackBtn:SetPoint("TOPLEFT", MainFrame, "TOPLEFT", 4, -3)
+local fallbackLabel = fallbackBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+fallbackLabel:SetPoint("LEFT", fallbackBtn, "LEFT", 2, 0)
+fallbackLabel:SetJustifyH("LEFT")
+fallbackLabel:SetText(L.FALLBACK_BTN)
+fallbackLabel:SetTextColor(0.6, 0.6, 0.6)
+fallbackBtn:SetScript("OnEnter", function(self)
+    fallbackLabel:SetTextColor(1, 0.82, 0)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    GameTooltip:SetText(L.FALLBACK_TOOLTIP, 1, 1, 1, 1, true)
+    GameTooltip:Show()
+end)
+fallbackBtn:SetScript("OnLeave", function()
+    fallbackLabel:SetTextColor(0.6, 0.6, 0.6)
+    GameTooltip:Hide()
+end)
 
 -- Mass action buttons (footer). OnClick handlers are wired up after ApplyRoll
 -- is defined (see further below, near the StaticPopupDialogs block).
@@ -507,7 +547,7 @@ end
 
 -- Options Frame
 local OptionsFrame = CreateFrame("Frame", "SimpleRollOptionsFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
-OptionsFrame:SetSize(340, 370)
+OptionsFrame:SetSize(340, 430)
 OptionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 OptionsFrame:SetFrameStrata("DIALOG")
 OptionsFrame:SetClampedToScreen(true)
@@ -705,6 +745,50 @@ optMassCheck:SetScript("OnClick", function(self)
     end
 end)
 
+-- Option: track who bid Need/Greed/Pass by parsing party/raid chat. Default = off.
+local optChatTrackCheck = CreateFrame("CheckButton", "SimpleRollOptChatTrackCheck", optContent, "UICheckButtonTemplate")
+optChatTrackCheck:SetSize(24, 24)
+optChatTrackCheck:SetPoint("TOPLEFT", optMassDesc, "BOTTOMLEFT", -2, -12)
+
+local optChatTrackLabel = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optChatTrackLabel:SetPoint("LEFT", optChatTrackCheck, "RIGHT", 4, 0)
+optChatTrackLabel:SetText(L.OPT_CHAT_TRACK)
+
+local optChatTrackDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optChatTrackDesc:SetPoint("TOPLEFT", optChatTrackCheck, "BOTTOMLEFT", 2, -2)
+optChatTrackDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optChatTrackDesc:SetJustifyH("LEFT")
+optChatTrackDesc:SetText(L.OPT_CHAT_TRACK_DESC)
+optChatTrackDesc:SetTextColor(0.7, 0.7, 0.7)
+
+optChatTrackCheck:SetScript("OnShow", function(self)
+    self:SetChecked(SimpleRollDB and SimpleRollDB.chatTracking and true or false)
+end)
+optChatTrackCheck:SetScript("OnClick", function(self)
+    SimpleRollDB = SimpleRollDB or {}
+    SimpleRollDB.chatTracking = self:GetChecked() and true or false
+    for _, s in pairs(activeRolls) do
+        local e = s.itemLink and SimpleRollChat and SimpleRollChat.tracked and SimpleRollChat.tracked[s.itemLink]
+        if e then
+            UpdateSlotTrackers(s, e.counts.need, e.counts.greed, e.counts.pass)
+        else
+            UpdateSlotTrackers(s, 0, 0, 0)
+        end
+    end
+end)
+
+-- Info block: emergency fallback button explanation
+local optFallbackHeader = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optFallbackHeader:SetPoint("TOPLEFT", optChatTrackDesc, "BOTTOMLEFT", -2, -16)
+optFallbackHeader:SetText(L.FALLBACK_HEADER)
+
+local optFallbackDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optFallbackDesc:SetPoint("TOPLEFT", optFallbackHeader, "BOTTOMLEFT", 0, -4)
+optFallbackDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optFallbackDesc:SetJustifyH("LEFT")
+optFallbackDesc:SetText(L.FALLBACK_DESC)
+optFallbackDesc:SetTextColor(0.7, 0.7, 0.7)
+
 -- Slot construction
 local BUTTON_DEFS = {
     { key = "pass",  size = CLOSE_BUTTON_SIZE, rollType = ROLL_PASS,  label = L.PASS,  color = COLOR_PASS,
@@ -784,8 +868,8 @@ local function CreateSlot()
     -- Timer bar: manual texture (StatusBar pixel-snaps fill width at thin heights)
     local timerBar = CreateFrame("Frame", nil, slot)
     timerBar:SetHeight(2)
-    timerBar:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", 55, 5)
-    timerBar:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", -6, 5)
+    timerBar:SetPoint("BOTTOMLEFT", slot, "BOTTOMLEFT", 46, 2)
+    timerBar:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", -6, 2)
     local timerBg = timerBar:CreateTexture(nil, "BACKGROUND")
     timerBg:SetAllPoints()
     timerBg:SetColorTexture(0, 0, 0, 0.4)
@@ -799,13 +883,47 @@ local function CreateSlot()
 
     -- Item name (1-line, offset up to clear timer bar)
     local itemName = slot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    itemName:SetPoint("LEFT", iconFrame, "RIGHT", 6, 3)
+    itemName:SetPoint("LEFT", iconFrame, "RIGHT", 6, 8)
     itemName:SetJustifyH("LEFT")
     itemName:SetJustifyV("MIDDLE")
     itemName:SetWordWrap(false)
     itemName:SetHeight(16)
     if itemName.SetMaxLines then itemName:SetMaxLines(1) end
     slot.ItemName = itemName
+
+    -- Bid tracker row: need/greed/pass icon + count, hidden until someone bids
+    local trackSize = 14
+    local trackNeed = slot:CreateTexture(nil, "ARTWORK")
+    trackNeed:SetTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Up")
+    trackNeed:SetSize(trackSize, trackSize)
+    trackNeed:SetPoint("TOPLEFT", itemName, "BOTTOMLEFT", 0, -2)
+    trackNeed:Hide()
+
+    local trackGreed = slot:CreateTexture(nil, "ARTWORK")
+    trackGreed:SetTexture("Interface\\Buttons\\UI-GroupLoot-Coin-Up")
+    trackGreed:SetSize(trackSize, trackSize)
+    trackGreed:SetPoint("LEFT", trackNeed, "RIGHT", 18, 0)
+    trackGreed:Hide()
+
+    local trackPass = slot:CreateTexture(nil, "ARTWORK")
+    trackPass:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+    trackPass:SetSize(trackSize, trackSize)
+    trackPass:SetPoint("LEFT", trackGreed, "RIGHT", 18, 0)
+    trackPass:Hide()
+
+    local function MakeTrackCount(anchor)
+        local fs = slot:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+        fs:SetPoint("LEFT", anchor, "RIGHT", 1, 0)
+        fs:Hide()
+        return fs
+    end
+
+    slot.TrackNeed       = trackNeed
+    slot.TrackGreed      = trackGreed
+    slot.TrackPass       = trackPass
+    slot.TrackNeedCount  = MakeTrackCount(trackNeed)
+    slot.TrackGreedCount = MakeTrackCount(trackGreed)
+    slot.TrackPassCount  = MakeTrackCount(trackPass)
 
     -- Roll buttons: need / greed / pass in a horizontal row, anchored from the right
     slot.Buttons = {}
@@ -845,6 +963,36 @@ local function AcquireSlot()
     return table.remove(slotPool) or CreateSlot()
 end
 
+local function SetTrackerPart(icon, countFS, n)
+    if n and n > 0 then
+        icon:Show()
+        countFS:SetText(n)
+        countFS:Show()
+    else
+        icon:Hide()
+        countFS:Hide()
+    end
+end
+
+UpdateSlotTrackers = function(slot, need, greed, pass)
+    if not (SimpleRollDB and SimpleRollDB.chatTracking) then
+        need, greed, pass = 0, 0, 0
+    end
+    SetTrackerPart(slot.TrackNeed,  slot.TrackNeedCount,  need)
+    SetTrackerPart(slot.TrackGreed, slot.TrackGreedCount, greed)
+    SetTrackerPart(slot.TrackPass,  slot.TrackPassCount,  pass)
+end
+
+RefreshSlotFromChat = function(slot)
+    if not slot.itemLink then return end
+    local e = SimpleRollChat and SimpleRollChat.tracked and SimpleRollChat.tracked[slot.itemLink]
+    if e then
+        UpdateSlotTrackers(slot, e.counts.need, e.counts.greed, e.counts.pass)
+    else
+        UpdateSlotTrackers(slot, 0, 0, 0)
+    end
+end
+
 ReleaseSlot = function(slot)
     slot:Hide()
     slot:ClearAllPoints()
@@ -865,6 +1013,7 @@ ReleaseSlot = function(slot)
     slot.ItemName:Show()
     slot.TimerFill:SetWidth(0.01)
     slot.TimerBar:Show()
+    UpdateSlotTrackers(slot, 0, 0, 0)
     for _, btn in pairs(slot.Buttons) do
         btn:Show()
         btn:Enable()
@@ -1028,8 +1177,26 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
     slot:SetScript("OnUpdate", SlotOnUpdate)
     slot:Show()
     activeRolls[rollID] = slot
+    RefreshSlotFromChat(slot)
     MainFrame:UpdateLayout()
     MainFrame:UpdateCloseButton()
+end
+
+if SimpleRollChat then
+    SimpleRollChat.onUpdate = function(entry, kind)
+        if kind == "reset" then
+            for _, s in pairs(activeRolls) do
+                UpdateSlotTrackers(s, 0, 0, 0)
+            end
+            return
+        end
+        if not entry then return end
+        for _, s in pairs(activeRolls) do
+            if s.itemLink and SimpleRollChat.tracked[s.itemLink] == entry then
+                UpdateSlotTrackers(s, entry.counts.need, entry.counts.greed, entry.counts.pass)
+            end
+        end
+    end
 end
 
 -- Blizzard loot frame suppression
@@ -1040,11 +1207,34 @@ local function HideBlizzardRollFrames()
     for i = 1, max do
         local f = _G["GroupLootFrame" .. i]
         if f and not f._SR_Hooked then
-            f:HookScript("OnShow", function(self) self:Hide() end)
+            f:HookScript("OnShow", function(self)
+                -- Leave the frame visible if it was explicitly handed off by the
+                -- emergency fallback button. HookScript can't be undone, so we
+                -- gate behavior on the handedOffRolls table.
+                if self.rollID and handedOffRolls[self.rollID] then return end
+                self:Hide()
+            end)
             f._SR_Hooked = true
         end
     end
 end
+
+-- One-shot emergency fallback: hand every active roll to Blizzard's default UI,
+-- hide our frame, and let the next START_LOOT_ROLL naturally re-engage us.
+local function FallbackToDefault()
+    for rollID, slot in pairs(activeRolls) do
+        if rollID < TEST_ID_BASE and _G.GroupLootFrame_OpenNewFrame then
+            handedOffRolls[rollID] = true
+            local timeLeft = GetLootRollTimeLeft(rollID) or 0
+            _G.GroupLootFrame_OpenNewFrame(rollID, timeLeft)
+        end
+        ReleaseSlot(slot)
+    end
+    wipe(activeRolls)
+    MainFrame:Hide()
+end
+
+fallbackBtn:SetScript("OnClick", FallbackToDefault)
 
 -- Resolve roll data (handles item cache delay)
 local function NormalizeTime(t)
@@ -1113,6 +1303,18 @@ local function TestRolls(count, retryNum)
         if name and icon then
             added = added + 1
             AddRoll(TEST_ID_BASE + i, icon, name, quality, 30, true, true, link)
+            if SimpleRollChat and link then
+                SimpleRollChat.tracked[link] = {
+                    need = {}, greed = {}, pass = {},
+                    counts = {
+                        need  = math.random(0, 4),
+                        greed = math.random(0, 3),
+                        pass  = math.random(0, 2),
+                    },
+                }
+                local slot = activeRolls[TEST_ID_BASE + i]
+                if slot then RefreshSlotFromChat(slot) end
+            end
         end
     end
 
@@ -1157,6 +1359,9 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         if SimpleRollDB.massButtons == nil then
             SimpleRollDB.massButtons = true
         end
+        if SimpleRollDB.chatTracking == nil then
+            SimpleRollDB.chatTracking = true
+        end
         UpdateMassButtonsVisibility()
         local pos = SimpleRollDB.pos
         if pos then
@@ -1198,6 +1403,10 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     elseif event == "CANCEL_LOOT_ROLL" then
         pendingRolls[arg1] = nil
         massAutoConfirm[arg1] = nil
+        if handedOffRolls[arg1] then
+            handedOffRolls[arg1] = nil
+            return
+        end
         local slot = activeRolls[arg1]
         if slot then
             if not slot.rolled and not slot.timedOut then
@@ -1211,6 +1420,7 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         -- always auto-confirmed (massAutoConfirm table) to suppress Blizzard's
         -- per-item popup during a bulk action; single-click BoP rolls fall
         -- through to the instantRoll option.
+        if handedOffRolls[arg1] then return end
         HandleConfirmLootRoll(arg1, arg2)
     end
 end)
