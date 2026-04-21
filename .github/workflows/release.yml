@@ -25,7 +25,6 @@ jobs:
             --exclude='.gitattributes' \
             --exclude='.pkgmeta' \
             --exclude='CLAUDE.md' \
-            --exclude='CHANGELOG.md' \
             --exclude='doc' \
             --exclude='*.zip' \
             --exclude='*.disabled' \

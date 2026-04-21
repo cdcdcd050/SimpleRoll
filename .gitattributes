@@ -2,5 +2,4 @@
 .gitattributes export-ignore
 .pkgmeta export-ignore
 CLAUDE.md export-ignore
-CHANGELOG.md export-ignore
 doc export-ignore

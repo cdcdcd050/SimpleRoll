@@ -20,10 +20,18 @@ local L = {
     OPTIONS_TITLE    = "SimpleRoll Options",
     OPT_EXPAND       = "Expand all (no scroll)",
     OPT_EXPAND_DESC  = "When checked, every item is shown at once and the frame grows in height",
-    OPT_INSTANT      = "Roll instantly (no confirmation)",
-    OPT_INSTANT_DESC = "Hide the confirmation popup before rolling.",
+    OPT_INSTANT      = "Hide popup on selection",
+    OPT_INSTANT_DESC = "Hide the confirmation popup when selecting Need/Greed (All Pass always confirms).",
     OPT_CLOSE_DELAY  = "Close instantly",
-    OPT_CLOSE_DELAY_DESC = "Close the frame immediately when all rolls are resolved. Uncheck to pick a delay in seconds.",
+    OPT_CLOSE_DELAY_DESC = "Close the item popup immediately, or uncheck to pick a delay in seconds.",
+    OPT_MASS_BUTTONS      = "Show 'All' buttons",
+    OPT_MASS_BUTTONS_DESC = "Show All Need / All Greed / All Pass buttons at the bottom of the roll window.",
+    MASS_NEED        = "All Need",
+    MASS_GREED       = "All Greed",
+    MASS_PASS        = "All Pass",
+    MASS_NEED_CONFIRM  = "Roll Need on %d remaining item(s)?",
+    MASS_GREED_CONFIRM = "Roll Greed on %d remaining item(s)?",
+    MASS_PASS_CONFIRM  = "Pass on %d remaining item(s)?",
 }
 
 if locale == "koKR" then
@@ -42,10 +50,18 @@ if locale == "koKR" then
     L.OPTIONS_TITLE    = "SimpleRoll 옵션"
     L.OPT_EXPAND       = "전체 펼침 (스크롤 끄기)"
     L.OPT_EXPAND_DESC  = "체크하면 모든 아이템을 한꺼번에 표시"
-    L.OPT_INSTANT      = "즉시 선택"
-    L.OPT_INSTANT_DESC = "주사위 전 확인 팝업을 숨깁니다."
+    L.OPT_INSTANT      = "선택시 팝업 숨기기"
+    L.OPT_INSTANT_DESC = "입찰/차비 선택시 확인 팝업을 숨깁니다 (모두 포기는 항상 확인)."
     L.OPT_CLOSE_DELAY  = "즉시 닫기"
-    L.OPT_CLOSE_DELAY_DESC = "주사위가 끝나면 즉시 닫거나 지연시간을 설정합니다."
+    L.OPT_CLOSE_DELAY_DESC = "아이템 팝업창을 즉시 닫거나 지연시간을 설정합니다."
+    L.OPT_MASS_BUTTONS      = "일괄 버튼 표시"
+    L.OPT_MASS_BUTTONS_DESC = "주사위 창 하단에 모두 입찰/차비/포기 버튼을 표시합니다."
+    L.MASS_NEED        = "모두 입찰"
+    L.MASS_GREED       = "모두 차비"
+    L.MASS_PASS        = "모두 포기"
+    L.MASS_NEED_CONFIRM  = "남은 아이템 %d개에 모두 입찰을 누르시겠습니까?"
+    L.MASS_GREED_CONFIRM = "남은 아이템 %d개에 모두 차비를 누르시겠습니까?"
+    L.MASS_PASS_CONFIRM  = "남은 아이템 %d개를 모두 포기하시겠습니까?"
 end
 
 if locale == "zhCN" then
@@ -64,10 +80,18 @@ if locale == "zhCN" then
     L.OPTIONS_TITLE    = "SimpleRoll 选项"
     L.OPT_EXPAND       = "全部展开（禁用滚动）"
     L.OPT_EXPAND_DESC  = "勾选后同时显示所有物品，框体高度扩展"
-    L.OPT_INSTANT      = "立即掷骰（跳过确认）"
-    L.OPT_INSTANT_DESC = "掷骰前隐藏确认弹窗。"
+    L.OPT_INSTANT      = "选择时隐藏弹窗"
+    L.OPT_INSTANT_DESC = "选择需求/贪婪时隐藏确认弹窗（全部放弃始终确认）。"
     L.OPT_CLOSE_DELAY  = "立即关闭"
-    L.OPT_CLOSE_DELAY_DESC = "所有掷骰结束后立即关闭。取消勾选则选择等待秒数。"
+    L.OPT_CLOSE_DELAY_DESC = "立即关闭物品弹窗，或取消勾选以选择等待秒数。"
+    L.OPT_MASS_BUTTONS      = "显示全部按钮"
+    L.OPT_MASS_BUTTONS_DESC = "在掷骰窗口底部显示全部需求/贪婪/放弃按钮。"
+    L.MASS_NEED        = "全部需求"
+    L.MASS_GREED       = "全部贪婪"
+    L.MASS_PASS        = "全部放弃"
+    L.MASS_NEED_CONFIRM  = "对剩余 %d 个物品全部需求吗？"
+    L.MASS_GREED_CONFIRM = "对剩余 %d 个物品全部贪婪吗？"
+    L.MASS_PASS_CONFIRM  = "对剩余 %d 个物品全部放弃吗？"
 end
 
 if locale == "deDE" then
@@ -86,10 +110,18 @@ if locale == "deDE" then
     L.OPTIONS_TITLE    = "SimpleRoll Optionen"
     L.OPT_EXPAND       = "Alle anzeigen (kein Scrollen)"
     L.OPT_EXPAND_DESC  = "Wenn aktiviert: alle Gegenstände gleichzeitig (Frame wächst)"
-    L.OPT_INSTANT      = "Sofort würfeln (ohne Bestätigung)"
-    L.OPT_INSTANT_DESC = "Bestätigungsdialog vor dem Würfeln ausblenden."
+    L.OPT_INSTANT      = "Popup bei Auswahl ausblenden"
+    L.OPT_INSTANT_DESC = "Bestätigungsdialog bei Auswahl von Bedarf/Gier ausblenden (Alle Passen fragt immer)."
     L.OPT_CLOSE_DELAY  = "Sofort schließen"
-    L.OPT_CLOSE_DELAY_DESC = "Nach Ende aller Würfe sofort schließen. Deaktivieren, um eine Verzögerung in Sekunden zu wählen."
+    L.OPT_CLOSE_DELAY_DESC = "Gegenstandsdialog sofort schließen, oder deaktivieren für Verzögerung in Sekunden."
+    L.OPT_MASS_BUTTONS      = "Alle-Buttons anzeigen"
+    L.OPT_MASS_BUTTONS_DESC = "Alle-Bedarf/Gier/Passen-Buttons unten im Würfelfenster anzeigen."
+    L.MASS_NEED        = "Alle Bedarf"
+    L.MASS_GREED       = "Alle Gier"
+    L.MASS_PASS        = "Alle Passen"
+    L.MASS_NEED_CONFIRM  = "Auf %d verbleibende Gegenstände Bedarf würfeln?"
+    L.MASS_GREED_CONFIRM = "Auf %d verbleibende Gegenstände Gier würfeln?"
+    L.MASS_PASS_CONFIRM  = "Auf %d verbleibende Gegenstände passen?"
 end
 
 -- Constants
@@ -106,6 +138,10 @@ local DEFAULT_CLOSE_DELAY = 3
 local MAX_VISIBLE_SLOTS  = 4
 local SLOT_SPACING       = 1
 local RIGHT_MARGIN       = 6
+local MASS_BUTTON_WIDTH  = 82
+local MASS_BUTTON_HEIGHT = 20
+local MASS_BTN_Y_OFFSET  = 6  -- distance from frame bottom to button bottom
+local MASS_BTN_TOP_GAP   = 4  -- gap between button top and scrollFrame bottom
 
 local ROLL_NEED, ROLL_GREED, ROLL_PASS = 1, 2, 0
 local TEST_ID_BASE = 9000
@@ -124,6 +160,7 @@ local activeRolls = {}
 local pendingRolls = {}
 local slotPool = {}
 local nextAddedOrder = 1
+local massAutoConfirm = {}  -- rollID → true; consumed by CONFIRM_LOOT_ROLL handler to bypass per-item BoP popup during mass ops
 local ReleaseSlot  -- forward
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
@@ -231,6 +268,41 @@ countdownText:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -6, -1)
 countdownText:SetTextColor(0.6, 0.6, 0.6)
 countdownText:Hide()
 
+-- Mass action buttons (footer). OnClick handlers are wired up after ApplyRoll
+-- is defined (see further below, near the StaticPopupDialogs block).
+local massButtons = {}
+
+local MASS_BUTTON_DEFS = {
+    { key = "need",  label = L.MASS_NEED,  anchor = "BOTTOMLEFT",  xOff =  6 },
+    { key = "greed", label = L.MASS_GREED, anchor = "BOTTOM",      xOff =  0 },
+    { key = "pass",  label = L.MASS_PASS,  anchor = "BOTTOMRIGHT", xOff = -6 },
+}
+
+for _, def in ipairs(MASS_BUTTON_DEFS) do
+    local btn = CreateFrame("Button", nil, MainFrame, "UIPanelButtonTemplate")
+    btn:SetSize(MASS_BUTTON_WIDTH, MASS_BUTTON_HEIGHT)
+    btn:SetText(def.label)
+    if def.anchor == "BOTTOM" then
+        btn:SetPoint("BOTTOM", MainFrame, "BOTTOM", def.xOff, MASS_BTN_Y_OFFSET)
+    elseif def.anchor == "BOTTOMLEFT" then
+        btn:SetPoint("BOTTOMLEFT", MainFrame, "BOTTOMLEFT", def.xOff, MASS_BTN_Y_OFFSET)
+    else
+        btn:SetPoint("BOTTOMRIGHT", MainFrame, "BOTTOMRIGHT", def.xOff, MASS_BTN_Y_OFFSET)
+    end
+    massButtons[def.key] = btn
+end
+
+local function IsMassButtonsEnabled()
+    return not (SimpleRollDB and SimpleRollDB.massButtons == false)
+end
+
+local function UpdateMassButtonsVisibility()
+    local show = IsMassButtonsEnabled()
+    for _, btn in pairs(massButtons) do
+        if show then btn:Show() else btn:Hide() end
+    end
+end
+
 -- Roll application
 local function MarkRolled(slot, label, color)
     slot:SetScript("OnUpdate", nil)
@@ -251,6 +323,38 @@ local function MarkTimedOut(slot)
     slot.TimerBar:Hide()
 end
 
+-- Demo-only BoP confirm popup. Identical text to Blizzard's CONFIRM_LOOT_ROLL,
+-- but OnAccept is a no-op to avoid calling ConfirmLootRoll with an invalid
+-- (test) rollID. Used from the simulated confirm path below.
+StaticPopupDialogs["SIMPLEROLL_DEMO_BOP_CONFIRM"] = {
+    text = CONFIRM_LOOT_ROLL,
+    button1 = YES, button2 = NO,
+    OnAccept = function() end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+local function HandleConfirmLootRoll(rollID, rollType)
+    local isTest = rollID >= TEST_ID_BASE
+    if massAutoConfirm[rollID] then
+        massAutoConfirm[rollID] = nil
+        if not isTest then ConfirmLootRoll(rollID, rollType) end
+        return
+    end
+    if SimpleRollDB and SimpleRollDB.instantRoll == false then
+        local slot = activeRolls[rollID]
+        local itemName = (slot and slot.ItemName and slot.ItemName:GetText()) or ""
+        local typeLabel = _G["LOOT_ROLL_TYPE" .. rollType] or ""
+        local dialogKey = isTest and "SIMPLEROLL_DEMO_BOP_CONFIRM" or "CONFIRM_LOOT_ROLL"
+        local dialog = StaticPopup_Show(dialogKey, typeLabel, itemName)
+        if dialog and not isTest then
+            dialog.data = rollID
+            dialog.data2 = rollType
+        end
+    elseif not isTest then
+        ConfirmLootRoll(rollID, rollType)
+    end
+end
+
 local function ApplyRoll(slot, rollType, label, color)
     if not slot.rollID or slot.rolled or slot.timedOut then return false end
     slot.rolled = true
@@ -260,10 +364,92 @@ local function ApplyRoll(slot, rollType, label, color)
             slot.rolled = false
             return false
         end
+    elseif (rollType == ROLL_NEED or rollType == ROLL_GREED)
+           and (slot.quality or 0) >= 3 then
+        -- Demo: simulate the server's CONFIRM_LOOT_ROLL for rare+ test items so
+        -- the user can see how the instantRoll option affects the BoP popup
+        -- path without needing a real BoP drop.
+        local rollID = slot.rollID
+        C_Timer.After(0.05, function() HandleConfirmLootRoll(rollID, rollType) end)
     end
     MarkRolled(slot, label, color)
     return true
 end
+
+-- Mass actions. Eligibility piggybacks on each slot's per-row button Enabled
+-- state (populated from canNeed/canGreed in AddRoll); ineligible items are
+-- skipped (server wouldn't accept the roll anyway).
+--
+-- Target rollIDs are snapshotted at click time so rolls that arrive while the
+-- confirmation popup is open are NOT swept into the mass action.
+--
+-- Only Need/Greed rollIDs are marked in massAutoConfirm — Pass never fires
+-- CONFIRM_LOOT_ROLL. Marking happens only after ApplyRoll succeeds to avoid
+-- leaking entries on pcall(RollOnLoot) failure.
+local function CollectEligible(btnKey)
+    local ids = {}
+    for rollID, slot in pairs(activeRolls) do
+        if slot:IsShown() and not slot.rolled and not slot.timedOut
+           and slot.Buttons[btnKey]:IsEnabled() then
+            ids[#ids + 1] = rollID
+        end
+    end
+    return ids
+end
+
+local function ApplyAll(btnKey, rollType, label, color, rollIDs)
+    if not rollIDs then return end
+    for _, rollID in ipairs(rollIDs) do
+        local slot = activeRolls[rollID]
+        if slot and slot:IsShown() and not slot.rolled and not slot.timedOut
+           and slot.Buttons[btnKey]:IsEnabled() then
+            if ApplyRoll(slot, rollType, label, color)
+               and (rollType == ROLL_NEED or rollType == ROLL_GREED) then
+                massAutoConfirm[rollID] = true
+            end
+        end
+    end
+    MainFrame:UpdateCloseButton(true)
+end
+
+StaticPopupDialogs["SIMPLEROLL_NEED_ALL_CONFIRM"] = {
+    text = L.MASS_NEED_CONFIRM,
+    button1 = YES, button2 = NO,
+    OnAccept = function(self) ApplyAll("need", ROLL_NEED, L.NEED, COLOR_NEED, self.data) end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+StaticPopupDialogs["SIMPLEROLL_GREED_ALL_CONFIRM"] = {
+    text = L.MASS_GREED_CONFIRM,
+    button1 = YES, button2 = NO,
+    OnAccept = function(self) ApplyAll("greed", ROLL_GREED, L.GREED, COLOR_GREED, self.data) end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+StaticPopupDialogs["SIMPLEROLL_PASS_ALL_CONFIRM"] = {
+    text = L.MASS_PASS_CONFIRM,
+    button1 = YES, button2 = NO,
+    OnAccept = function(self) ApplyAll("pass", ROLL_PASS, L.PASS, COLOR_PASS, self.data) end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
+-- Need/Greed honor the instantRoll option (skip popup when on); Pass always
+-- shows the popup because it's irreversible and a mis-click would forfeit
+-- every pending item with no recovery.
+local function HandleMassClick(dialogKey, btnKey, rollType, label, color, allowInstant)
+    local ids = CollectEligible(btnKey)
+    if #ids == 0 then return end
+    if allowInstant and SimpleRollDB and SimpleRollDB.instantRoll then
+        ApplyAll(btnKey, rollType, label, color, ids)
+    else
+        local dialog = StaticPopup_Show(dialogKey, #ids)
+        if dialog then dialog.data = ids end
+    end
+end
+
+massButtons.need:SetScript("OnClick",  function() HandleMassClick("SIMPLEROLL_NEED_ALL_CONFIRM",  "need",  ROLL_NEED,  L.NEED,  COLOR_NEED,  true)  end)
+massButtons.greed:SetScript("OnClick", function() HandleMassClick("SIMPLEROLL_GREED_ALL_CONFIRM", "greed", ROLL_GREED, L.GREED, COLOR_GREED, true)  end)
+massButtons.pass:SetScript("OnClick",  function() HandleMassClick("SIMPLEROLL_PASS_ALL_CONFIRM",  "pass",  ROLL_PASS,  L.PASS,  COLOR_PASS,  false) end)
 
 -- Close / countdown visibility
 local function CloseAllSlots()
@@ -288,7 +474,9 @@ local function FrameCountdown(self)
     end
 end
 
-function MainFrame:UpdateCloseButton()
+local MASS_CLOSE_GRACE = 1  -- min delay after mass action so newly-arrived rolls are visible
+
+function MainFrame:UpdateCloseButton(fromMassAction)
     local anyPending = false
     for _, slot in pairs(activeRolls) do
         if slot:IsShown() and not slot.rolled and not slot.timedOut then
@@ -304,7 +492,10 @@ function MainFrame:UpdateCloseButton()
         if not self.closeAt then
             local delay
             if SimpleRollDB and SimpleRollDB.instantClose then
-                delay = 0
+                -- Mass actions override the 0-second instant close with a short
+                -- grace window so rolls arriving right after the batch resolves
+                -- aren't swallowed before the user can see them.
+                delay = fromMassAction and MASS_CLOSE_GRACE or 0
             else
                 delay = (SimpleRollDB and SimpleRollDB.closeDelay) or DEFAULT_CLOSE_DELAY
             end
@@ -484,6 +675,34 @@ end)
 OptionsFrame:HookScript("OnShow", function()
     optInstantCloseCheck:SetChecked(SimpleRollDB and SimpleRollDB.instantClose and true or false)
     RefreshDelayButtons()
+end)
+
+-- Option: show mass-action buttons in the roll window footer. Default = on.
+local optMassCheck = CreateFrame("CheckButton", "SimpleRollOptMassCheck", optContent, "UICheckButtonTemplate")
+optMassCheck:SetSize(24, 24)
+optMassCheck:SetPoint("TOPLEFT", delayButtons[1], "BOTTOMLEFT", -2, -14)
+
+local optMassLabel = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optMassLabel:SetPoint("LEFT", optMassCheck, "RIGHT", 4, 0)
+optMassLabel:SetText(L.OPT_MASS_BUTTONS)
+
+local optMassDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optMassDesc:SetPoint("TOPLEFT", optMassCheck, "BOTTOMLEFT", 2, -2)
+optMassDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optMassDesc:SetJustifyH("LEFT")
+optMassDesc:SetText(L.OPT_MASS_BUTTONS_DESC)
+optMassDesc:SetTextColor(0.7, 0.7, 0.7)
+
+optMassCheck:SetScript("OnShow", function(self)
+    self:SetChecked(IsMassButtonsEnabled())
+end)
+optMassCheck:SetScript("OnClick", function(self)
+    SimpleRollDB = SimpleRollDB or {}
+    SimpleRollDB.massButtons = self:GetChecked() and true or false
+    UpdateMassButtonsVisibility()
+    if MainFrame:IsShown() then
+        MainFrame:UpdateLayout()
+    end
 end)
 
 -- Slot construction
@@ -705,12 +924,17 @@ function MainFrame:UpdateLayout()
 
     -- Reserve fixed right margin for the custom scroll indicator
     local scrollRight = RIGHT_MARGIN
+    -- Bottom pad: when mass buttons are on, reserve just enough for the button
+    -- row plus a small gap; when off, match the top padding.
+    local bottomPad = IsMassButtonsEnabled()
+        and (MASS_BTN_Y_OFFSET + MASS_BUTTON_HEIGHT + MASS_BTN_TOP_GAP)
+        or  (HEADER_HEIGHT + 4)
     scrollFrame:ClearAllPoints()
     if growUp then
         -- Pin scrollFrame's bottom edge so the oldest item (placed at the bottom
         -- of the list in growUp mode) stays put as the frame grows upward.
-        scrollFrame:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", LEFT_PADDING, FOOTER_HEIGHT + PADDING)
-        scrollFrame:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -scrollRight, FOOTER_HEIGHT + PADDING)
+        scrollFrame:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", LEFT_PADDING, bottomPad)
+        scrollFrame:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -scrollRight, bottomPad)
     else
         scrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", LEFT_PADDING, -(HEADER_HEIGHT + 4))
         scrollFrame:SetPoint("TOPRIGHT", self, "TOPRIGHT", -scrollRight, -(HEADER_HEIGHT + 4))
@@ -734,7 +958,7 @@ function MainFrame:UpdateLayout()
     local maxScroll = math.max(0, contentH - visibleH)
     UpdateIndicatorThumb()
 
-    self:SetHeight(HEADER_HEIGHT + 4 + visibleH + FOOTER_HEIGHT + PADDING)
+    self:SetHeight(HEADER_HEIGHT + 4 + visibleH + bottomPad)
 
     -- Preserve user's current scroll position; only clamp if it exceeds new max
     -- (avoids hijacking the view and reducing click misses on items the user is looking at)
@@ -784,6 +1008,7 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
 
     if texture then slot.Icon:SetTexture(texture) end
     slot.ItemName:SetText(name or "???")
+    slot.quality = quality  -- used by the demo CONFIRM_LOOT_ROLL simulation
     if quality then
         local r, g, b = GetItemQualityColor(quality)
         slot.ItemName:SetTextColor(r, g, b)
@@ -929,6 +1154,10 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         if SimpleRollDB.instantClose == nil then
             SimpleRollDB.instantClose = true
         end
+        if SimpleRollDB.massButtons == nil then
+            SimpleRollDB.massButtons = true
+        end
+        UpdateMassButtonsVisibility()
         local pos = SimpleRollDB.pos
         if pos then
             MainFrame:ClearAllPoints()
@@ -968,6 +1197,7 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
 
     elseif event == "CANCEL_LOOT_ROLL" then
         pendingRolls[arg1] = nil
+        massAutoConfirm[arg1] = nil
         local slot = activeRolls[arg1]
         if slot then
             if not slot.rolled and not slot.timedOut then
@@ -977,21 +1207,11 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
 
     elseif event == "CONFIRM_LOOT_ROLL" then
-        -- BoP items require a second server round-trip. When instantRoll is on,
-        -- auto-confirm silently; when off, defer to Blizzard's default popup.
-        local rollID, rollType = arg1, arg2
-        if SimpleRollDB and SimpleRollDB.instantRoll == false then
-            local slot = activeRolls[rollID]
-            local itemName = (slot and slot.ItemName and slot.ItemName:GetText()) or ""
-            local typeLabel = _G["LOOT_ROLL_TYPE" .. rollType] or ""
-            local dialog = StaticPopup_Show("CONFIRM_LOOT_ROLL", typeLabel, itemName)
-            if dialog then
-                dialog.data = rollID
-                dialog.data2 = rollType
-            end
-        else
-            ConfirmLootRoll(rollID, rollType)
-        end
+        -- BoP items require a second server round-trip. Mass-op rolls are
+        -- always auto-confirmed (massAutoConfirm table) to suppress Blizzard's
+        -- per-item popup during a bulk action; single-click BoP rolls fall
+        -- through to the instantRoll option.
+        HandleConfirmLootRoll(arg1, arg2)
     end
 end)
 
