@@ -5,8 +5,13 @@
 ## Notes-zhCN: 简易团队拾取掷骰界面替换
 ## Notes-deDE: Einfacher Gruppen-Loot-Würfel-UI-Ersatz
 ## Author: CH00
-## Version: 1.4.0
+## Version: 1.5.0
 ## SavedVariables: SimpleRollDB
+
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 
 SimpleRoll.lua
 SimpleRoll_ChatTracker.lua

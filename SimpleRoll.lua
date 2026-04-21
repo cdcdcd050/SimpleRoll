@@ -34,6 +34,7 @@ local L = {
     MASS_NEED_CONFIRM  = "Roll Need on %d remaining item(s)?",
     MASS_GREED_CONFIRM = "Roll Greed on %d remaining item(s)?",
     MASS_PASS_CONFIRM  = "Pass on %d remaining item(s)?",
+    MINIMAP_HINT       = "Click: preview demo + open options",
     FALLBACK_BTN       = "Switch to Default UI",
     FALLBACK_TOOLTIP   = "Switch to Blizzard's default loot UI for this session. Reload (/reload) to restore SimpleRoll.",
     FALLBACK_HEADER    = "Emergency fallback",
@@ -70,6 +71,7 @@ if locale == "koKR" then
     L.MASS_NEED_CONFIRM  = "남은 아이템 %d개에 모두 입찰을 누르시겠습니까?"
     L.MASS_GREED_CONFIRM = "남은 아이템 %d개에 모두 차비를 누르시겠습니까?"
     L.MASS_PASS_CONFIRM  = "남은 아이템 %d개를 모두 포기하시겠습니까?"
+    L.MINIMAP_HINT       = "클릭: 미리보기 + 옵션창 열기"
     L.FALLBACK_BTN       = "기본 UI로 전환"
     L.FALLBACK_TOOLTIP   = "이번 세션 동안 블리자드 기본 전리품 UI로 전환합니다. /reload 로 SimpleRoll 복구."
     L.FALLBACK_HEADER    = "비상 전환"
@@ -1330,6 +1332,36 @@ local function TestRolls(count, retryNum)
     print(PREFIX .. string.format(L.TEST_SPAWNED, added))
 end
 
+-- Minimap button: LDB broker + LibDBIcon. Both click buttons do the same thing —
+-- spawn the demo and open the options panel. Position persisted via SimpleRollDB.minimap.
+local function SetupMinimapButton()
+    if not _G.LibStub then return end
+    local LDB  = LibStub("LibDataBroker-1.1", true)
+    local DBI  = LibStub("LibDBIcon-1.0", true)
+    if not LDB or not DBI then return end
+
+    local function launch()
+        TestRolls(math.random(3, 5))
+        OptionsFrame:Show()
+    end
+
+    local broker = LDB:GetDataObjectByName(ADDON_NAME) or LDB:NewDataObject(ADDON_NAME, {
+        type = "launcher",
+        text = ADDON_NAME,
+        icon = "Interface\\Buttons\\UI-GroupLoot-Dice-Up",
+        OnClick = function(_, _) launch() end,
+        OnTooltipShow = function(tooltip)
+            tooltip:AddLine(ADDON_NAME)
+            tooltip:AddLine(L.MINIMAP_HINT, 1, 1, 1)
+        end,
+    })
+
+    SimpleRollDB.minimap = SimpleRollDB.minimap or { hide = false }
+    if not DBI:IsRegistered(ADDON_NAME) then
+        DBI:Register(ADDON_NAME, broker, SimpleRollDB.minimap)
+    end
+end
+
 -- Events
 EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -1363,6 +1395,7 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
             SimpleRollDB.chatTracking = true
         end
         UpdateMassButtonsVisibility()
+        SetupMinimapButton()
         local pos = SimpleRollDB.pos
         if pos then
             MainFrame:ClearAllPoints()
