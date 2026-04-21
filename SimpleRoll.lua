@@ -1,19 +1,10 @@
 local ADDON_NAME = "SimpleRoll"
 
--- ===========================================================
 -- Localization
--- ===========================================================
 local PREFIX = "|cFFFFD700SimpleRoll:|r "
 local locale = GetLocale()
 
 local L = {
-    NEED_ALL         = "Need All",
-    NEED_ALL_TIP     = "Need on all items",
-    GREED_ALL        = "Greed All",
-    GREED_ALL_TIP    = "Greed on all items",
-    PASS_ALL         = "Pass All",
-    PASS_ALL_TIP     = "Pass on all items",
-    PASS_ALL_CONFIRM = "Pass on all items?",
     NEED             = "Need",
     GREED            = "Greed",
     PASS             = "Pass",
@@ -24,17 +15,18 @@ local L = {
     POS_RESET        = "Position reset.",
     HELP_HEADER      = "Commands:",
     CMD_PREVIEW      = "Preview (random 3~5 items)",
+    CMD_PREVIEW_N    = "<N> - Preview N items (e.g. /srsr 1)",
     CMD_RESET        = "reset - Reset position",
+    OPTIONS_TITLE    = "SimpleRoll Options",
+    OPT_EXPAND       = "Expand all (no scroll)",
+    OPT_EXPAND_DESC  = "When checked, every item is shown at once and the frame grows in height",
+    OPT_INSTANT      = "Roll instantly (no confirmation)",
+    OPT_INSTANT_DESC = "Hide the confirmation popup before rolling.",
+    OPT_CLOSE_DELAY  = "Close instantly",
+    OPT_CLOSE_DELAY_DESC = "Close the frame immediately when all rolls are resolved. Uncheck to pick a delay in seconds.",
 }
 
 if locale == "koKR" then
-    L.NEED_ALL         = "모두 입찰"
-    L.NEED_ALL_TIP     = "모든 아이템 입찰"
-    L.GREED_ALL        = "모두 차비"
-    L.GREED_ALL_TIP    = "모든 아이템 차비"
-    L.PASS_ALL         = "모두 포기"
-    L.PASS_ALL_TIP     = "모든 아이템 포기"
-    L.PASS_ALL_CONFIRM = "모든 아이템을 포기하시겠습니까?"
     L.NEED             = "입찰"
     L.GREED            = "차비"
     L.PASS             = "포기"
@@ -45,17 +37,18 @@ if locale == "koKR" then
     L.POS_RESET        = "위치 초기화됨."
     L.HELP_HEADER      = "명령어:"
     L.CMD_PREVIEW      = "미리보기 (랜덤 3~5개)"
+    L.CMD_PREVIEW_N    = "<N> - N개 미리보기 (예: /srsr 1)"
     L.CMD_RESET        = "reset - 위치 초기화"
+    L.OPTIONS_TITLE    = "SimpleRoll 옵션"
+    L.OPT_EXPAND       = "전체 펼침 (스크롤 끄기)"
+    L.OPT_EXPAND_DESC  = "체크하면 모든 아이템을 한꺼번에 표시"
+    L.OPT_INSTANT      = "즉시 선택"
+    L.OPT_INSTANT_DESC = "주사위 전 확인 팝업을 숨깁니다."
+    L.OPT_CLOSE_DELAY  = "즉시 닫기"
+    L.OPT_CLOSE_DELAY_DESC = "주사위가 끝나면 즉시 닫거나 지연시간을 설정합니다."
 end
 
 if locale == "zhCN" then
-    L.NEED_ALL         = "全部需求"
-    L.NEED_ALL_TIP     = "对所有物品需求"
-    L.GREED_ALL        = "全部贪婪"
-    L.GREED_ALL_TIP    = "对所有物品贪婪"
-    L.PASS_ALL         = "全部放弃"
-    L.PASS_ALL_TIP     = "放弃所有物品"
-    L.PASS_ALL_CONFIRM = "放弃所有物品？"
     L.NEED             = "需求"
     L.GREED            = "贪婪"
     L.PASS             = "放弃"
@@ -66,17 +59,18 @@ if locale == "zhCN" then
     L.POS_RESET        = "位置已重置。"
     L.HELP_HEADER      = "命令："
     L.CMD_PREVIEW      = "预览 (随机 3~5 个)"
+    L.CMD_PREVIEW_N    = "<N> - 预览 N 个 (例: /srsr 1)"
     L.CMD_RESET        = "reset - 重置位置"
+    L.OPTIONS_TITLE    = "SimpleRoll 选项"
+    L.OPT_EXPAND       = "全部展开（禁用滚动）"
+    L.OPT_EXPAND_DESC  = "勾选后同时显示所有物品，框体高度扩展"
+    L.OPT_INSTANT      = "立即掷骰（跳过确认）"
+    L.OPT_INSTANT_DESC = "掷骰前隐藏确认弹窗。"
+    L.OPT_CLOSE_DELAY  = "立即关闭"
+    L.OPT_CLOSE_DELAY_DESC = "所有掷骰结束后立即关闭。取消勾选则选择等待秒数。"
 end
 
 if locale == "deDE" then
-    L.NEED_ALL         = "Alle Bedarf"
-    L.NEED_ALL_TIP     = "Auf alle Gegenstände Bedarf"
-    L.GREED_ALL        = "Alle Gier"
-    L.GREED_ALL_TIP    = "Auf alle Gegenstände Gier"
-    L.PASS_ALL         = "Alle Passen"
-    L.PASS_ALL_TIP     = "Auf alle Gegenstände passen"
-    L.PASS_ALL_CONFIRM = "Auf alle Gegenstände passen?"
     L.NEED             = "Bedarf"
     L.GREED            = "Gier"
     L.PASS             = "Passen"
@@ -87,22 +81,28 @@ if locale == "deDE" then
     L.POS_RESET        = "Position zurückgesetzt."
     L.HELP_HEADER      = "Befehle:"
     L.CMD_PREVIEW      = "Vorschau (zufällig 3~5 Gegenstände)"
+    L.CMD_PREVIEW_N    = "<N> - Vorschau N Gegenstände (z.B. /srsr 1)"
     L.CMD_RESET        = "reset - Position zurücksetzen"
+    L.OPTIONS_TITLE    = "SimpleRoll Optionen"
+    L.OPT_EXPAND       = "Alle anzeigen (kein Scrollen)"
+    L.OPT_EXPAND_DESC  = "Wenn aktiviert: alle Gegenstände gleichzeitig (Frame wächst)"
+    L.OPT_INSTANT      = "Sofort würfeln (ohne Bestätigung)"
+    L.OPT_INSTANT_DESC = "Bestätigungsdialog vor dem Würfeln ausblenden."
+    L.OPT_CLOSE_DELAY  = "Sofort schließen"
+    L.OPT_CLOSE_DELAY_DESC = "Nach Ende aller Würfe sofort schließen. Deaktivieren, um eine Verzögerung in Sekunden zu wählen."
 end
 
--- ===========================================================
 -- Constants
--- ===========================================================
 local DEFAULT_WIDTH      = 277
 local SLOT_HEIGHT        = 40
 local HEADER_HEIGHT      = 8
-local FOOTER_HEIGHT      = 38
+local FOOTER_HEIGHT      = 12
 local PADDING            = 14
 local LEFT_PADDING       = 4
 local BUTTON_SIZE        = 26
 local CLOSE_BUTTON_SIZE  = 18
 local ICON_SIZE          = 30
-local CLOSE_DELAY        = 0.5
+local DEFAULT_CLOSE_DELAY = 3
 local MAX_VISIBLE_SLOTS  = 4
 local SLOT_SPACING       = 1
 local RIGHT_MARGIN       = 6
@@ -119,9 +119,7 @@ local GetItemQualityColor = C_Item and C_Item.GetItemQualityColor or _G.GetItemQ
 local GetAddOnMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
 local VERSION = (GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version")) or ""
 
--- ===========================================================
 -- State
--- ===========================================================
 local activeRolls = {}
 local pendingRolls = {}
 local slotPool = {}
@@ -130,9 +128,7 @@ local ReleaseSlot  -- forward
 
 local EventFrame = CreateFrame("Frame", ADDON_NAME .. "Events", UIParent)
 
--- ===========================================================
 -- Main Frame
--- ===========================================================
 local MainFrame = CreateFrame("Frame", "SimpleRollFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 MainFrame:SetSize(DEFAULT_WIDTH, HEADER_HEIGHT + PADDING * 2)
 MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
@@ -235,17 +231,7 @@ countdownText:SetPoint("TOPRIGHT", MainFrame, "TOPRIGHT", -6, -1)
 countdownText:SetTextColor(0.6, 0.6, 0.6)
 countdownText:Hide()
 
--- Version label (bottom-right, always visible)
-local versionText = MainFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-versionText:SetPoint("BOTTOMRIGHT", MainFrame, "BOTTOMRIGHT", -8, 6)
-versionText:SetTextColor(0.45, 0.45, 0.45)
-if VERSION ~= "" then
-    versionText:SetText("v" .. VERSION)
-end
-
--- ===========================================================
--- Roll application (shared by slot buttons and mass buttons)
--- ===========================================================
+-- Roll application
 local function MarkRolled(slot, label, color)
     slot:SetScript("OnUpdate", nil)
     for _, btn in pairs(slot.Buttons) do btn:Hide() end
@@ -279,50 +265,7 @@ local function ApplyRoll(slot, rollType, label, color)
     return true
 end
 
--- ===========================================================
--- Mass action buttons
--- ===========================================================
-local function MakeTipButton(text, tip)
-    local btn = CreateFrame("Button", nil, MainFrame, "UIPanelButtonTemplate")
-    btn:SetText(text)
-    btn:SetSize(72, 24)
-    btn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText(tip, 1, 1, 1)
-        GameTooltip:Show()
-    end)
-    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    return btn
-end
-
-local function RollAll(rollType, label, color)
-    for _, slot in pairs(activeRolls) do
-        ApplyRoll(slot, rollType, label, color)
-    end
-    MainFrame:UpdateCloseButton()
-end
-
-local needAllBtn = MakeTipButton(L.NEED_ALL, L.NEED_ALL_TIP)
-needAllBtn:SetScript("OnClick", function() RollAll(ROLL_NEED, L.NEED, COLOR_NEED) end)
-
-local greedAllBtn = MakeTipButton(L.GREED_ALL, L.GREED_ALL_TIP)
-greedAllBtn:SetScript("OnClick", function() RollAll(ROLL_GREED, L.GREED, COLOR_GREED) end)
-
-StaticPopupDialogs["SIMPLEROLL_PASS_ALL"] = {
-    text = L.PASS_ALL_CONFIRM,
-    button1 = YES,
-    button2 = NO,
-    OnAccept = function() RollAll(ROLL_PASS, L.PASS, COLOR_PASS) end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-local passAllBtn = MakeTipButton(L.PASS_ALL, L.PASS_ALL_TIP)
-passAllBtn:SetScript("OnClick", function() StaticPopup_Show("SIMPLEROLL_PASS_ALL") end)
-
--- ===========================================================
 -- Close / countdown visibility
--- ===========================================================
 local function CloseAllSlots()
     for rollID, slot in pairs(activeRolls) do
         ReleaseSlot(slot)
@@ -353,24 +296,197 @@ function MainFrame:UpdateCloseButton()
             break
         end
     end
-    needAllBtn:SetShown(anyPending)
-    greedAllBtn:SetShown(anyPending)
-    passAllBtn:SetShown(anyPending)
     if anyPending then
         self.closeAt = nil
         self:SetScript("OnUpdate", nil)
         countdownText:Hide()
     else
         if not self.closeAt then
-            self.closeAt = GetTime() + CLOSE_DELAY
+            local delay
+            if SimpleRollDB and SimpleRollDB.instantClose then
+                delay = 0
+            else
+                delay = (SimpleRollDB and SimpleRollDB.closeDelay) or DEFAULT_CLOSE_DELAY
+            end
+            self.closeAt = GetTime() + delay
         end
         self:SetScript("OnUpdate", FrameCountdown)
     end
 end
 
--- ===========================================================
+-- Options Frame
+local OptionsFrame = CreateFrame("Frame", "SimpleRollOptionsFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
+OptionsFrame:SetSize(340, 370)
+OptionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+OptionsFrame:SetFrameStrata("DIALOG")
+OptionsFrame:SetClampedToScreen(true)
+OptionsFrame:Hide()
+OptionsFrame:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    tile = false, edgeSize = 1,
+    insets = { left = 0, right = 0, top = 0, bottom = 0 },
+})
+OptionsFrame:SetBackdropColor(0, 0, 0, 0.9)
+OptionsFrame:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+OptionsFrame:SetMovable(true)
+OptionsFrame:EnableMouse(true)
+OptionsFrame:RegisterForDrag("LeftButton")
+OptionsFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+OptionsFrame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    local point, _, rel, x, y = self:GetPoint()
+    SimpleRollDB.optionsPos = { point = point, rel = rel, x = x, y = y }
+end)
+
+local optTitleBar = OptionsFrame:CreateTexture(nil, "ARTWORK")
+optTitleBar:SetColorTexture(0.75, 0.6, 0.05, 0.9)
+optTitleBar:SetPoint("TOPLEFT", 0, 0)
+optTitleBar:SetPoint("TOPRIGHT", 0, 0)
+optTitleBar:SetHeight(22)
+
+local optTitle = OptionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optTitle:SetPoint("TOP", OptionsFrame, "TOP", 0, -4)
+optTitle:SetText(L.OPTIONS_TITLE)
+optTitle:SetTextColor(1, 1, 1)
+
+local optClose = CreateFrame("Button", nil, OptionsFrame, "UIPanelCloseButton")
+optClose:SetSize(24, 24)
+optClose:SetPoint("TOPRIGHT", OptionsFrame, "TOPRIGHT", 2, 2)
+
+local optVersion = OptionsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+optVersion:SetPoint("BOTTOMRIGHT", OptionsFrame, "BOTTOMRIGHT", -8, 6)
+optVersion:SetTextColor(0.45, 0.45, 0.45)
+if VERSION ~= "" then
+    optVersion:SetText("v" .. VERSION)
+end
+
+-- Content area: reserved for future options. Anchor children to OptionsFrame.Content.
+local optContent = CreateFrame("Frame", nil, OptionsFrame)
+optContent:SetPoint("TOPLEFT", OptionsFrame, "TOPLEFT", 12, -32)
+optContent:SetPoint("BOTTOMRIGHT", OptionsFrame, "BOTTOMRIGHT", -12, 12)
+OptionsFrame.Content = optContent
+
+-- Option: expand-all (stacked) view vs scroll view. Default expandAll = true
+-- (stacked); legacy `useScroll` key is migrated in ADDON_LOADED.
+local optExpandCheck = CreateFrame("CheckButton", "SimpleRollOptExpandCheck", optContent, "UICheckButtonTemplate")
+optExpandCheck:SetSize(24, 24)
+optExpandCheck:SetPoint("TOPLEFT", optContent, "TOPLEFT", 0, 0)
+
+local optExpandLabel = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optExpandLabel:SetPoint("LEFT", optExpandCheck, "RIGHT", 4, 0)
+optExpandLabel:SetText(L.OPT_EXPAND)
+
+local optExpandDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optExpandDesc:SetPoint("TOPLEFT", optExpandCheck, "BOTTOMLEFT", 2, -2)
+optExpandDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optExpandDesc:SetJustifyH("LEFT")
+optExpandDesc:SetText(L.OPT_EXPAND_DESC)
+optExpandDesc:SetTextColor(0.7, 0.7, 0.7)
+
+optExpandCheck:SetScript("OnShow", function(self)
+    self:SetChecked(not (SimpleRollDB and SimpleRollDB.expandAll == false))
+end)
+optExpandCheck:SetScript("OnClick", function(self)
+    SimpleRollDB = SimpleRollDB or {}
+    SimpleRollDB.expandAll = self:GetChecked() and true or false
+    if MainFrame:IsShown() then
+        MainFrame:UpdateLayout()
+    end
+end)
+
+-- Option: when checked, BoP CONFIRM_LOOT_ROLL is auto-confirmed; when unchecked,
+-- Blizzard's default popup is shown. Legacy `confirmIndividual` key is migrated
+-- in ADDON_LOADED.
+local optInstantCheck = CreateFrame("CheckButton", "SimpleRollOptInstantCheck", optContent, "UICheckButtonTemplate")
+optInstantCheck:SetSize(24, 24)
+optInstantCheck:SetPoint("TOPLEFT", optExpandDesc, "BOTTOMLEFT", -2, -12)
+
+local optInstantLabel = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optInstantLabel:SetPoint("LEFT", optInstantCheck, "RIGHT", 4, 0)
+optInstantLabel:SetText(L.OPT_INSTANT)
+
+local optInstantDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optInstantDesc:SetPoint("TOPLEFT", optInstantCheck, "BOTTOMLEFT", 2, -2)
+optInstantDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optInstantDesc:SetJustifyH("LEFT")
+optInstantDesc:SetText(L.OPT_INSTANT_DESC)
+optInstantDesc:SetTextColor(0.7, 0.7, 0.7)
+
+optInstantCheck:SetScript("OnShow", function(self)
+    self:SetChecked(not (SimpleRollDB and SimpleRollDB.instantRoll == false))
+end)
+optInstantCheck:SetScript("OnClick", function(self)
+    SimpleRollDB = SimpleRollDB or {}
+    SimpleRollDB.instantRoll = self:GetChecked() and true or false
+end)
+
+-- Close-instantly checkbox + 1~5 second buttons (shown dimmed when instant is checked)
+local optInstantCloseCheck = CreateFrame("CheckButton", "SimpleRollOptInstantCloseCheck", optContent, "UICheckButtonTemplate")
+optInstantCloseCheck:SetSize(24, 24)
+optInstantCloseCheck:SetPoint("TOPLEFT", optInstantDesc, "BOTTOMLEFT", -2, -12)
+
+local optInstantCloseLabel = optContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+optInstantCloseLabel:SetPoint("LEFT", optInstantCloseCheck, "RIGHT", 4, 0)
+optInstantCloseLabel:SetText(L.OPT_CLOSE_DELAY)
+
+local optInstantCloseDesc = optContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+optInstantCloseDesc:SetPoint("TOPLEFT", optInstantCloseCheck, "BOTTOMLEFT", 2, -2)
+optInstantCloseDesc:SetPoint("RIGHT", optContent, "RIGHT", 0, 0)
+optInstantCloseDesc:SetJustifyH("LEFT")
+optInstantCloseDesc:SetText(L.OPT_CLOSE_DELAY_DESC)
+optInstantCloseDesc:SetTextColor(0.7, 0.7, 0.7)
+
+local delayButtons = {}
+local function RefreshDelayButtons()
+    local instant = SimpleRollDB and SimpleRollDB.instantClose
+    local current = (SimpleRollDB and SimpleRollDB.closeDelay) or DEFAULT_CLOSE_DELAY
+    for v, btn in pairs(delayButtons) do
+        if instant then
+            btn:Disable()
+            btn:SetAlpha(0.25)
+        else
+            btn:Enable()
+            if v == current then
+                btn:SetAlpha(1)
+            else
+                btn:SetAlpha(0.4)
+            end
+        end
+    end
+end
+
+local DELAY_BTN_W = 48
+local DELAY_BTN_GAP = 2
+for i = 1, 5 do
+    local btn = CreateFrame("Button", nil, optContent, "UIPanelButtonTemplate")
+    btn:SetSize(DELAY_BTN_W, 22)
+    if i == 1 then
+        btn:SetPoint("TOPLEFT", optInstantCloseDesc, "BOTTOMLEFT", 2, -10)
+    else
+        btn:SetPoint("LEFT", delayButtons[i - 1], "RIGHT", DELAY_BTN_GAP, 0)
+    end
+    btn:SetText(string.format(L.SECONDS_FMT, i))
+    btn:SetScript("OnClick", function()
+        SimpleRollDB = SimpleRollDB or {}
+        SimpleRollDB.closeDelay = i
+        RefreshDelayButtons()
+    end)
+    delayButtons[i] = btn
+end
+
+optInstantCloseCheck:SetScript("OnClick", function(self)
+    SimpleRollDB = SimpleRollDB or {}
+    SimpleRollDB.instantClose = self:GetChecked() and true or false
+    RefreshDelayButtons()
+end)
+
+OptionsFrame:HookScript("OnShow", function()
+    optInstantCloseCheck:SetChecked(SimpleRollDB and SimpleRollDB.instantClose and true or false)
+    RefreshDelayButtons()
+end)
+
 -- Slot construction
--- ===========================================================
 local BUTTON_DEFS = {
     { key = "pass",  size = CLOSE_BUTTON_SIZE, rollType = ROLL_PASS,  label = L.PASS,  color = COLOR_PASS,
       normal = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
@@ -538,9 +654,7 @@ ReleaseSlot = function(slot)
     table.insert(slotPool, slot)
 end
 
--- ===========================================================
 -- Layout
--- ===========================================================
 function MainFrame:UpdateLayout()
     local visible = {}
     for _, slot in pairs(activeRolls) do
@@ -548,32 +662,71 @@ function MainFrame:UpdateLayout()
     end
     if #visible == 0 then
         self:Hide()
+        self._growUp = nil  -- recompute direction next time the frame opens
         return
     end
     table.sort(visible, function(a, b) return (a.addedOrder or 0) < (b.addedOrder or 0) end)
 
     local n = #visible
-    local visibleCount = MAX_VISIBLE_SLOTS
+    local scrollMode = SimpleRollDB and SimpleRollDB.expandAll == false
+    local visibleCount = scrollMode and MAX_VISIBLE_SLOTS or n
     local row = SLOT_HEIGHT + SLOT_SPACING
     local visibleH = visibleCount * row - SLOT_SPACING
     local contentH = n * row - SLOT_SPACING
-    local needsScroll = n > MAX_VISIBLE_SLOTS
 
     self:SetWidth(DEFAULT_WIDTH)
+
+    -- In expand mode, anchor and grow toward the screen edge with more room so
+    -- existing slots don't shift under the cursor (SetClampedToScreen would
+    -- otherwise push the whole frame up when it overflows the bottom). Direction
+    -- is decided once per show session to avoid flipping mid-session if growth
+    -- pushes the frame's center past the screen midpoint. Scroll mode keeps a
+    -- fixed height, so this logic is skipped there.
+    local growUp = false
+    if not scrollMode then
+        if self._growUp == nil then
+            local _, cy = self:GetCenter()
+            local screenH = UIParent:GetHeight()
+            self._growUp = (cy and screenH and screenH > 0 and cy < screenH / 2) and true or false
+
+            local desiredPoint = self._growUp and "BOTTOMLEFT" or "TOPLEFT"
+            if self:GetPoint() ~= desiredPoint then
+                local left = self:GetLeft()
+                local edgeY = self._growUp and self:GetBottom() or self:GetTop()
+                if left and edgeY then
+                    self:ClearAllPoints()
+                    self:SetPoint(desiredPoint, UIParent, "BOTTOMLEFT", left, edgeY)
+                    SavePosition()
+                end
+            end
+        end
+        growUp = self._growUp
+    end
 
     -- Reserve fixed right margin for the custom scroll indicator
     local scrollRight = RIGHT_MARGIN
     scrollFrame:ClearAllPoints()
-    scrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", LEFT_PADDING, -(HEADER_HEIGHT + 4))
-    scrollFrame:SetPoint("TOPRIGHT", self, "TOPRIGHT", -scrollRight, -(HEADER_HEIGHT + 4))
+    if growUp then
+        -- Pin scrollFrame's bottom edge so the oldest item (placed at the bottom
+        -- of the list in growUp mode) stays put as the frame grows upward.
+        scrollFrame:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", LEFT_PADDING, FOOTER_HEIGHT + PADDING)
+        scrollFrame:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -scrollRight, FOOTER_HEIGHT + PADDING)
+    else
+        scrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", LEFT_PADDING, -(HEADER_HEIGHT + 4))
+        scrollFrame:SetPoint("TOPRIGHT", self, "TOPRIGHT", -scrollRight, -(HEADER_HEIGHT + 4))
+    end
     scrollFrame:SetHeight(visibleH)
 
     local scrollW = DEFAULT_WIDTH - LEFT_PADDING - scrollRight
     scrollContent:SetSize(scrollW, contentH)
 
+    -- In growUp mode, reverse the visible list order: newest at top, oldest at
+    -- bottom. Combined with the bottom-pinned scrollFrame, this keeps already-
+    -- shown items visually stationary while new arrivals push upward.
     for i, slot in ipairs(visible) do
         slot:ClearAllPoints()
-        local yOff = -((i - 1) * row)
+        local listPos = growUp and (n - i + 1) or i
+        local yOff = -((listPos - 1) * row)
         slot:SetPoint("TOPLEFT", scrollContent, "TOPLEFT", 0, yOff)
         slot:SetPoint("TOPRIGHT", scrollContent, "TOPRIGHT", 0, yOff)
     end
@@ -582,13 +735,6 @@ function MainFrame:UpdateLayout()
     UpdateIndicatorThumb()
 
     self:SetHeight(HEADER_HEIGHT + 4 + visibleH + FOOTER_HEIGHT + PADDING)
-
-    needAllBtn:ClearAllPoints()
-    needAllBtn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", LEFT_PADDING, 16)
-    greedAllBtn:ClearAllPoints()
-    greedAllBtn:SetPoint("LEFT", needAllBtn, "RIGHT", 4, 0)
-    passAllBtn:ClearAllPoints()
-    passAllBtn:SetPoint("LEFT", greedAllBtn, "RIGHT", 4, 0)
 
     -- Preserve user's current scroll position; only clamp if it exceeds new max
     -- (avoids hijacking the view and reducing click misses on items the user is looking at)
@@ -599,9 +745,7 @@ function MainFrame:UpdateLayout()
     self:Show()
 end
 
--- ===========================================================
 -- Per-slot update (timeout detection + auto-close)
--- ===========================================================
 local function SlotOnUpdate(self, elapsed)
     self.timeLeft = self.timeLeft - elapsed
     if self.timeLeft <= 0 then
@@ -616,9 +760,7 @@ local function SlotOnUpdate(self, elapsed)
     end
 end
 
--- ===========================================================
 -- Add roll
--- ===========================================================
 local function SetButtonEnabled(btn, enabled)
     if not btn then return end
     if enabled then
@@ -665,9 +807,7 @@ local function AddRoll(rollID, texture, name, quality, timeLeft, canNeed, canGre
     MainFrame:UpdateCloseButton()
 end
 
--- ===========================================================
 -- Blizzard loot frame suppression
--- ===========================================================
 local function HideBlizzardRollFrames()
     UIParent:UnregisterEvent("START_LOOT_ROLL")
     UIParent:UnregisterEvent("CANCEL_LOOT_ROLL")
@@ -681,9 +821,7 @@ local function HideBlizzardRollFrames()
     end
 end
 
--- ===========================================================
 -- Resolve roll data (handles item cache delay)
--- ===========================================================
 local function NormalizeTime(t)
     if type(t) == "number" then return t / 1000 end
     return 60
@@ -710,9 +848,7 @@ local function ResolveRoll(rollID)
     pendingRolls[rollID] = { name = name, quality = quality, canNeed = canNeed, canGreed = canGreed, itemLink = itemLink }
 end
 
--- ===========================================================
 -- Test rolls (/srsr preview)
--- ===========================================================
 local testItemIDs = {
     2589,    -- Linen Cloth (common)
     21877,   -- Netherweave Cloth (common)
@@ -767,9 +903,7 @@ local function TestRolls(count, retryNum)
     print(PREFIX .. string.format(L.TEST_SPAWNED, added))
 end
 
--- ===========================================================
 -- Events
--- ===========================================================
 EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("START_LOOT_ROLL")
@@ -780,10 +914,30 @@ EventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         SimpleRollDB = SimpleRollDB or {}
+        -- Migrate legacy option keys (v1.3.x → v1.4): semantics inverted.
+        if SimpleRollDB.useScroll ~= nil and SimpleRollDB.expandAll == nil then
+            SimpleRollDB.expandAll = not SimpleRollDB.useScroll
+        end
+        SimpleRollDB.useScroll = nil
+        if SimpleRollDB.confirmIndividual ~= nil and SimpleRollDB.instantRoll == nil then
+            SimpleRollDB.instantRoll = not SimpleRollDB.confirmIndividual
+        end
+        SimpleRollDB.confirmIndividual = nil
+        if SimpleRollDB.closeDelay == nil then
+            SimpleRollDB.closeDelay = DEFAULT_CLOSE_DELAY
+        end
+        if SimpleRollDB.instantClose == nil then
+            SimpleRollDB.instantClose = true
+        end
         local pos = SimpleRollDB.pos
         if pos then
             MainFrame:ClearAllPoints()
             MainFrame:SetPoint(pos.point or "TOPLEFT", UIParent, pos.rel or "TOPLEFT", pos.x or 100, pos.y or -200)
+        end
+        local opos = SimpleRollDB.optionsPos
+        if opos then
+            OptionsFrame:ClearAllPoints()
+            OptionsFrame:SetPoint(opos.point or "CENTER", UIParent, opos.rel or "CENTER", opos.x or 0, opos.y or 0)
         end
 
     elseif event == "PLAYER_LOGIN" then
@@ -823,32 +977,47 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
 
     elseif event == "CONFIRM_LOOT_ROLL" then
-        -- BoP items require a second server round-trip: RollOnLoot fires this
-        -- event, and the actual roll is only recorded after ConfirmLootRoll.
-        -- Blizzard's GroupLootFrame would show a YES/NO popup, but the user
-        -- already made an explicit choice through our UI (including mass-roll
-        -- buttons where a popup per item would be unworkable), so auto-confirm.
-        ConfirmLootRoll(arg1, arg2)
+        -- BoP items require a second server round-trip. When instantRoll is on,
+        -- auto-confirm silently; when off, defer to Blizzard's default popup.
+        local rollID, rollType = arg1, arg2
+        if SimpleRollDB and SimpleRollDB.instantRoll == false then
+            local slot = activeRolls[rollID]
+            local itemName = (slot and slot.ItemName and slot.ItemName:GetText()) or ""
+            local typeLabel = _G["LOOT_ROLL_TYPE" .. rollType] or ""
+            local dialog = StaticPopup_Show("CONFIRM_LOOT_ROLL", typeLabel, itemName)
+            if dialog then
+                dialog.data = rollID
+                dialog.data2 = rollType
+            end
+        else
+            ConfirmLootRoll(rollID, rollType)
+        end
     end
 end)
 
--- ===========================================================
 -- Slash command
--- ===========================================================
 SLASH_SIMPLEROLL1 = "/srsr"
 SLASH_SIMPLEROLL2 = "/simpleroll"
 SlashCmdList["SIMPLEROLL"] = function(msg)
     local cmd = (msg or ""):lower():match("^(%S*)")
+    local num = tonumber(cmd)
     if cmd == "" then
         TestRolls(math.random(3, 5))
+        OptionsFrame:Show()
+    elseif num and num > 0 then
+        TestRolls(math.floor(num))
+        OptionsFrame:Show()
     elseif cmd == "reset" then
         wipe(SimpleRollDB)
         MainFrame:ClearAllPoints()
         MainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -200)
+        OptionsFrame:ClearAllPoints()
+        OptionsFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
         print(PREFIX .. L.POS_RESET)
     else
         print(PREFIX .. L.HELP_HEADER)
         print("  /srsr - " .. L.CMD_PREVIEW)
+        print("  /srsr " .. L.CMD_PREVIEW_N)
         print("  /srsr " .. L.CMD_RESET)
     end
 end

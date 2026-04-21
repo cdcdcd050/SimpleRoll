@@ -23,9 +23,11 @@ jobs:
             --exclude='.git' \
             --exclude='.github' \
             --exclude='.gitattributes' \
+            --exclude='.pkgmeta' \
             --exclude='CLAUDE.md' \
             --exclude='doc' \
             --exclude='*.zip' \
+            --exclude='*.disabled' \
             ./ "$STAGE/"
           cd /tmp/build
           zip -r "${GITHUB_WORKSPACE}/SimpleRoll-${VERSION}.zip" SimpleRoll
