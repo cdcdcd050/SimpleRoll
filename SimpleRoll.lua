@@ -1205,6 +1205,10 @@ end
 local function HideBlizzardRollFrames()
     UIParent:UnregisterEvent("START_LOOT_ROLL")
     UIParent:UnregisterEvent("CANCEL_LOOT_ROLL")
+    -- Without this, UIParent's default handler also fires StaticPopup_Show
+    -- on CONFIRM_LOOT_ROLL, so BoP bids pop the Blizzard confirm dialog even
+    -- when our instantRoll option has already auto-confirmed the roll.
+    UIParent:UnregisterEvent("CONFIRM_LOOT_ROLL")
     local max = NUM_GROUP_LOOT_FRAMES or 4
     for i = 1, max do
         local f = _G["GroupLootFrame" .. i]
@@ -1453,7 +1457,17 @@ EventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         -- always auto-confirmed (massAutoConfirm table) to suppress Blizzard's
         -- per-item popup during a bulk action; single-click BoP rolls fall
         -- through to the instantRoll option.
-        if handedOffRolls[arg1] then return end
+        if handedOffRolls[arg1] then
+            -- We unregistered UIParent's CONFIRM_LOOT_ROLL, so the default
+            -- popup no longer appears for rolls handed back to Blizzard's UI.
+            -- Recreate it here so the fallback path still works.
+            local dialog = StaticPopup_Show("CONFIRM_LOOT_ROLL", _G["LOOT_ROLL_TYPE" .. arg2])
+            if dialog then
+                dialog.data = arg1
+                dialog.data2 = arg2
+            end
+            return
+        end
         HandleConfirmLootRoll(arg1, arg2)
     end
 end)

@@ -39,4 +39,4 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "SimpleRoll-${GITHUB_REF_NAME}.zip" \
             --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+            --notes ""
