@@ -1,8 +1,13 @@
 package-as: SimpleRoll
 
+manual-changelog:
+  filename: CHANGELOG.txt
+  markup-type: plain
+
 ignore:
   - .github
   - .gitattributes
   - .pkgmeta
   - CLAUDE.md
+  - CHANGELOG.txt
   - doc
